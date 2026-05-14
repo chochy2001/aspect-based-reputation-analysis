@@ -17,7 +17,7 @@ joblib>=1.3.0
 # --- Lexicones de sentimiento (español) ---
 # Senti-py se instala manualmente; VADER vía nltk.vader_lexicon
 # pysentimiento (opcional, alternativa)
-pysentimiento>=0.7.4
+pysentimiento>=0.7.3
 
 # --- LLMs ---
 anthropic>=0.25.0

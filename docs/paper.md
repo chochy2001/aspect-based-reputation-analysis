@@ -12,23 +12,18 @@ lang: es
 bibliography: references.bib
 link-citations: true
 toc: true
-numbersections: true
+numbersections: false
 ---
 
-\begin{center}
-\large
-\textbf{Universidad Nacional Autónoma de México}\\
-\textbf{Facultad de Ingeniería}\\[0.4em]
-\textit{Análisis y Procesamiento Inteligente de Textos}\\
-Profesor: M. en C. Octavio Augusto Sánchez Velázquez\\
-Semestre 2026-2\\[1em]
-\end{center}
+**Universidad Nacional Autónoma de México** · **Facultad de Ingeniería**
+
+*Análisis y Procesamiento Inteligente de Textos* · Profesor: M. en C. Octavio Augusto Sánchez Velázquez · Semestre 2026-2
 
 ---
 
 # Resumen (Abstract)
 
-Las plataformas de comercio electrónico hispanohablantes concentran reseñas de productos en formato no estructurado. La calificación promedio de estrellas resume la satisfacción global, pero oculta dimensiones específicas como calidad, precio, envío, durabilidad y atención al cliente. Este trabajo aborda la construcción automática de **puntuaciones de reputación basadas en aspectos** (*Aspect-Based Reputation Scores*) sobre reseñas de productos en español. Implementamos y comparamos tres familias de métodos para la tarea intermedia de Análisis de Sentimientos Basado en Aspectos (ABSA) [@pontiki2014semeval; @zhang2022survey]: un enfoque clásico que combina un lexicón de sentimiento en español con un clasificador SVM sobre representaciones TF-IDF [@pedregosa2011scikit]; un modelo transformer preentrenado en español, BETO [@canete2020spanish], afinado mediante la técnica de *auxiliary sentence* [@sun2019utilizing]; y un modelo de lenguaje a gran escala (Claude Sonnet 4.5) operado mediante *few-shot prompting* [@brown2020language]. Las predicciones por aspecto se agregan en puntuaciones 0 a 5 con ponderación por confianza y suavizado bayesiano. Sobre un piloto controlado con 1 500 reseñas anotadas, BETO alcanzó F1-macro = 0.846 frente a 0.673 del enfoque clásico y 0.825 del LLM; la agregación de BETO produjo reputaciones con MAE = 0.413, validando la hipótesis principal. El repositorio versionado incluye código, pruebas automatizadas, notebooks y datos de prueba para reproducibilidad.
+Las plataformas de comercio electrónico hispanohablantes concentran reseñas de productos en formato no estructurado. La calificación promedio de estrellas resume la satisfacción global, pero oculta dimensiones específicas como calidad, precio, envío, durabilidad y atención al cliente. Este trabajo aborda la construcción automática de **puntuaciones de reputación basadas en aspectos** (*Aspect-Based Reputation Scores*) sobre reseñas de productos en español. Implementamos y comparamos tres familias de métodos para la tarea intermedia de Análisis de Sentimientos Basado en Aspectos (ABSA) [@pontiki2014semeval; @zhang2022survey]: un enfoque clásico que combina un lexicón de sentimiento en español con un clasificador SVM sobre representaciones TF-IDF [@pedregosa2011scikit]; un modelo transformer preentrenado en español, BETO [@canete2020spanish], afinado mediante la técnica de *auxiliary sentence* [@sun2019utilizing]; y un modelo de lenguaje a gran escala (Claude Sonnet 4.5) operado mediante *few-shot prompting* [@brown2020language]. Las predicciones por aspecto se agregan en puntuaciones 0 a 5 con ponderación por confianza y suavizado bayesiano. Sobre un piloto controlado con 1 500 reseñas anotadas, BETO alcanzó F1-macro = 0.846 frente a 0.673 del enfoque clásico y 0.825 del LLM; la agregación de BETO produjo reputaciones con MAE = 0.413, consistente con la hipótesis principal. El repositorio versionado incluye código, pruebas automatizadas, notebooks y datos de prueba para reproducibilidad.
 
 **Palabras clave:** análisis de sentimientos basado en aspectos, sistemas de reputación, BETO, BERT en español, *few-shot prompting*, procesamiento de lenguaje natural, NLP.
 
@@ -120,7 +115,7 @@ La arquitectura Transformer [@vaswani2017attention] reemplazó las RNN/LSTM como
 
 **BETO** [@canete2020spanish] es la versión española de BERT, preentrenada sobre 3 mil millones de tokens del corpus *Spanish Unannotated Corpora*. Su variante `bert-base-spanish-wwm-uncased`, utilizada en este trabajo, aplica *Whole Word Masking* durante el preentrenamiento. Alternativas competitivas incluyen XLM-RoBERTa [@conneau2020unsupervised] (multilingüe) y MarIA [@gutierrezfandino2022maria] (preentrenado sobre corpus de la Biblioteca Nacional de España).
 
-Para adaptar BERT a ABSA, Sun et al. [@sun2019utilizing] propusieron la técnica de *auxiliary sentence*: la entrada al modelo se construye como `[CLS] reseña [SEP] aspecto [SEP]`, permitiendo que el token `[CLS]` codifique información específica del par (reseña, aspecto). Esta formulación, ampliada por Xu et al. [@xu2019bert] con preentrenamiento post-hoc sobre reseñas, alcanzó el estado del arte en SemEval-2014. Yang et al. [@yang2021multitask] extendieron el enfoque a multi-tarea conjunta ATE+ASC.
+Para adaptar BERT a ABSA, Sun et al. [@sun2019utilizing] propusieron la técnica de *auxiliary sentence*: en lugar de pasar el aspecto como segundo segmento, construyen una oración auxiliar completa (por ejemplo, una pregunta tipo *"¿qué piensas del precio del producto?"*) que se concatena a la reseña antes del último `[SEP]`. La entrada resultante `[CLS] reseña [SEP] oración_auxiliar [SEP]` permite que el token `[CLS]` codifique información específica del par (reseña, aspecto). Los autores reportan cuatro variantes (QA-M, QA-B, NLI-M, NLI-B). Xu et al. [@xu2019bert] ampliaron el esquema con preentrenamiento post-hoc sobre reseñas, alcanzando el estado del arte en SemEval-2014. Yang et al. [@yang2021multitask] extendieron el enfoque a multi-tarea conjunta ATE+ASC.
 
 ## 3.5 Modelos de Lenguaje a Gran Escala y prompting
 
@@ -178,7 +173,7 @@ Los experimentos se ejecutaron en tres entornos:
 
 Toda la pipeline se implementó en Python 3.11. Las dependencias principales son `transformers==4.38`, `torch==2.1.0`, `scikit-learn==1.4` [@pedregosa2011scikit], `spaCy==3.7` con modelo `es_core_news_lg`, `nltk==3.8` [@bird2009nltk], y `anthropic==0.25` para el cliente del LLM. La lista completa de dependencias y sus versiones se versiona en `requirements.txt` y `pyproject.toml`. El código completo, junto con los notebooks reproducibles, las pruebas automatizadas y los scripts de entrenamiento, se encuentra en el repositorio:
 
-> \url{https://github.com/chochy2001/aspect-based-reputation-analysis}
+> <https://github.com/chochy2001/aspect-based-reputation-analysis>
 
 ## 5.3 Objetivo y forma de evaluar
 
@@ -188,6 +183,12 @@ El objetivo es comparar empíricamente los tres enfoques (clásico, BETO, LLM) e
 2. **Construcción de reputación por aspecto:** agregación a puntuación 0 a 5 por producto y aspecto. Métricas MAE, RMSE y correlación de Pearson contra la referencia derivada del promedio de polaridades anotadas manualmente.
 
 Se construyó un corpus piloto de **1 500 reseñas en español** etiquetadas manualmente por los tres autores con tripletas `(aspecto, polaridad)` cuando aplicaba, partiendo de una muestra mayor de Amazon México y MercadoLibre. El acuerdo inter-anotador medido con $\kappa$ de Cohen fue de 0.78, considerado sustancial en la escala de Landis y Koch. Se definieron cinco aspectos cerrados: **calidad**, **precio**, **envío**, **durabilidad** y **atención**. El split se realizó por producto (no por reseña) para evitar fuga de información: 70 % entrenamiento, 15 % validación y 15 % prueba.
+
+## 5.4 Consideraciones éticas y legales
+
+La recolección de reseñas se realizó con fines exclusivamente académicos y sin redistribución pública del corpus crudo. Antes de la anotación, las reseñas pasaron por un pipeline de anonimización que eliminó nombres de usuario, números de pedido y referencias geográficas precisas mediante expresiones regulares y una revisión manual final. Los términos de servicio de Amazon México y MercadoLibre restringen el scraping automatizado; por ello, el corpus anotado no se versiona en el repositorio público y se distribuye únicamente bajo solicitud razonada a los autores, con compromiso de uso no comercial. La protección de datos personales se maneja conforme a la **Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP)** vigente en México.
+
+Adicionalmente, el uso de un LLM comercial (Claude Sonnet 4.5) implica enviar texto de reseñas a un proveedor externo. Se confirmó la política de no entrenamiento sobre datos de API en la documentación de Anthropic, y se considera un riesgo controlado dada la naturaleza pública de las reseñas y la previa anonimización. Una limitación residual es la potencial **contaminación del conjunto de prueba**: el LLM puede haber visto reseñas similares en su corpus de preentrenamiento, lo que podría inflar su desempeño respecto a una evaluación verdaderamente ciega.
 
 # 6. Experimentos
 
@@ -273,13 +274,13 @@ Tabla 4: Agregación a puntuaciones de reputación (escala 0 a 5).
 
 # 7. Resultado General
 
-**Respuesta a H₀:** BETO con agregación ponderada produce reputaciones con MAE = 0.413, por debajo del umbral 0.5 establecido. **La hipótesis principal se valida.**
+**Respuesta a H₀:** BETO con agregación ponderada produce reputaciones con MAE = 0.413, por debajo del umbral 0.5 establecido. **La hipótesis principal queda respaldada por el piloto**, pendiente de confirmación con intervalo de confianza bootstrap y múltiples semillas en una iteración futura.
 
-**Respuesta a H₁:** BETO supera al baseline clásico en 17.3 puntos de F1-macro (0.846 frente a 0.673), excediendo holgadamente el umbral de 10 puntos. **H₁ se valida.**
+**Respuesta a H₁:** BETO supera al baseline clásico en 17.3 puntos de F1-macro (0.846 frente a 0.673), excediendo holgadamente el umbral de 10 puntos. **H₁ queda respaldada**; la magnitud de la diferencia hace improbable que sea ruido estadístico.
 
-**Respuesta a H₂:** Claude Sonnet 4.5 con *few-shot* obtuvo F1-macro = 0.825, a 2.1 puntos de BETO, dentro del margen de 3 puntos hipotetizado. **H₂ se valida.**
+**Respuesta a H₂:** Claude Sonnet 4.5 con *few-shot* obtuvo F1-macro = 0.825, a 2.1 puntos de BETO, dentro del margen de 3 puntos hipotetizado. **H₂ queda respaldada en el piloto**, aunque la diferencia es pequeña y una prueba de significancia (McNemar o bootstrap) sería deseable antes de afirmar equivalencia.
 
-En conjunto, las tres hipótesis se sostienen y la línea argumental del trabajo (BETO ofrece el mejor balance calidad-costo en español para ABSA, los LLM compiten sin entrenamiento, los lexicones siguen siendo útiles por interpretabilidad) queda respaldada por el piloto.
+En conjunto, las tres hipótesis se sostienen y la línea argumental del trabajo (BETO ofrece el mejor balance calidad-costo en español para ABSA, los LLM compiten sin entrenamiento, los lexicones siguen siendo útiles por interpretabilidad) es coherente con los resultados del piloto.
 
 # 8. Análisis de Resultados
 
@@ -323,7 +324,7 @@ A escala (12 000 reseñas), el LLM costaría aproximadamente USD 224, mientras q
 
 ## 8.5 Distribución por aspecto y desbalance de clases
 
-El aspecto *atención* es el más raro (8.8 % de las menciones del conjunto de prueba) y, paradójicamente, aquel donde el LLM brilla. Esto sugiere que en escenarios de *low-resource per-class*, los modelos con conocimiento previo amplio mantienen desempeño mientras que los afinados sobre clases minoritarias sufren [@zhang2024sentiment]. Este hallazgo es relevante para escenarios reales donde los datos suelen ser muy desbalanceados [@sokolova2009systematic].
+El aspecto *atención* es el más raro (8.8 % de las menciones del conjunto de prueba) y aquel donde el LLM mostró su mejor desempeño relativo (F1 = 0.860 frente a 0.835 de BETO). La diferencia es pequeña (0.025 puntos) y, dada la baja cardinalidad de la clase (89 menciones), probablemente cae dentro del intervalo de confianza bootstrap. Aun así, el patrón es consistente con la idea de que, en escenarios de *low-resource per-class*, los modelos con conocimiento previo amplio resisten mejor que los afinados sobre clases minoritarias [@zhang2024sentiment]. Este hallazgo es relevante para escenarios reales donde los datos suelen ser muy desbalanceados [@sokolova2009systematic].
 
 ## 8.6 Limitaciones internas del piloto
 
@@ -355,7 +356,7 @@ Para un equipo que desee implementar análisis de reputación basado en aspectos
 
 ## 9.3 Cierre
 
-El presente trabajo, lejos de zanjar la pregunta sobre el "mejor" enfoque ABSA en español, expone que la elección depende de variables económicas, regulatorias y operativas tanto como técnicas. La hipótesis principal se valida en el piloto, pero la lección de fondo es metodológica: tres familias muy distintas producen resultados sorprendentemente cercanos, y el verdadero diferencial está en la línea de agregación, donde la calibración de confianza supera en importancia a la precisión bruta del clasificador subyacente [@josang2007survey].
+El presente trabajo, lejos de zanjar la pregunta sobre el "mejor" enfoque ABSA en español, expone que la elección depende de variables económicas, regulatorias y operativas tanto como técnicas. La hipótesis principal queda respaldada por el piloto, pero la lección de fondo es metodológica: tres familias muy distintas producen resultados sorprendentemente cercanos, y el verdadero diferencial está en la línea de agregación, donde la calibración de confianza supera en importancia a la precisión bruta del clasificador subyacente [@josang2007survey].
 
 # Bibliografía
 
