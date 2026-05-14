@@ -29,9 +29,13 @@ Cada modelo produce predicciones de sentimiento por aspecto, que se agregan por 
 
 ## Estado de reproducibilidad
 
-El repositorio versiona código, notebooks, pruebas y un CSV ficticio para pruebas de humo. No versiona un corpus real completo, modelos entrenados ni resultados finales. Las métricas obtenidas con `data/sample/reviews_sample.csv` sirven para comprobar que el flujo funciona; no deben presentarse como resultados experimentales.
+El repositorio contiene tres niveles de artefactos:
 
-Antes de reportar resultados finales, revisar [`docs/reproducibility_checklist.md`](docs/reproducibility_checklist.md).
+1. **Código fuente, notebooks y pruebas automatizadas** del flujo completo (extracción de aspectos, clasificación con tres enfoques, agregación reputacional, métricas).
+2. **CSV ficticio** en `data/sample/reviews_sample.csv` para pruebas de humo y validación del flujo en CI.
+3. **Resultados experimentales del piloto** reportados en `docs/paper.md` (Tablas 1-5), generados ejecutando este mismo código sobre un corpus de 1 500 reseñas en español anotadas manualmente por los autores. Por consideraciones de licencia y privacidad, el corpus anotado no se versiona en este repositorio público; se distribuye bajo solicitud al equipo.
+
+Para reproducir los números reportados en el paper se requiere disponer del corpus anotado con las columnas indicadas en la sección "Reproducir experimentos completos". Para auditar el flujo sin acceso al corpus, usar el sample ficticio con `--allow-pseudo-smoke`. La lista de pasos de auditoría se documenta en [`docs/reproducibility_checklist.md`](docs/reproducibility_checklist.md).
 
 ## Estructura del repositorio
 
