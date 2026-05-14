@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_WINDOW: int = 5
 NEGATION_WINDOW: int = 3
+TOKEN_PATTERN = re.compile(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+")
 NEGATION_TERMS: frozenset[str] = frozenset({"no", "nunca", "jamás", "tampoco", "ningún", "ninguna"})
 INTENSIFIERS: dict[str, float] = {
     "muy": 1.5,
@@ -110,10 +112,23 @@ def save_lexicon(lexicon: dict[str, float], path: str | Path) -> None:
     logger.info("Lexicón guardado en %s", path)
 
 
-def _find_aspect_positions(tokens: list[str], aspect: str) -> list[int]:
-    """Devuelve índices donde aparece el aspecto en la lista de tokens."""
-    aspect_low = aspect.lower()
-    return [i for i, tok in enumerate(tokens) if tok.lower() == aspect_low]
+def _tokenize_words(text: str) -> list[str]:
+    """Tokeniza palabras ignorando puntuación y normalizando a minúsculas."""
+    return [match.group(0).lower() for match in TOKEN_PATTERN.finditer(text)]
+
+
+def _find_aspect_spans(tokens: list[str], aspect: str) -> list[tuple[int, int]]:
+    """Devuelve spans [inicio, fin) donde aparece el aspecto tokenizado."""
+    aspect_tokens = _tokenize_words(aspect)
+    if not aspect_tokens:
+        return []
+
+    width = len(aspect_tokens)
+    spans: list[tuple[int, int]] = []
+    for i in range(0, len(tokens) - width + 1):
+        if tokens[i:i + width] == aspect_tokens:
+            spans.append((i, i + width))
+    return spans
 
 
 def score_aspect_lexicon(
@@ -139,19 +154,19 @@ def score_aspect_lexicon(
     if lexicon is None:
         lexicon = DEFAULT_LEXICON
 
-    tokens = text.lower().split()
-    positions = _find_aspect_positions(tokens, aspect)
-    if not positions:
+    tokens = _tokenize_words(text)
+    spans = _find_aspect_spans(tokens, aspect)
+    if not spans:
         return 0.0
 
     scores: list[float] = []
-    for pos in positions:
-        start = max(0, pos - window)
-        end = min(len(tokens), pos + window + 1)
+    for aspect_start, aspect_end in spans:
+        start = max(0, aspect_start - window)
+        end = min(len(tokens), aspect_end + window)
         local_score = 0.0
         local_count = 0
         for i in range(start, end):
-            if i == pos:
+            if aspect_start <= i < aspect_end:
                 continue
             tok = tokens[i]
             if tok in lexicon:

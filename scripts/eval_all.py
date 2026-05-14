@@ -8,34 +8,40 @@ import logging
 import os
 from pathlib import Path
 
-from sklearn.model_selection import train_test_split
-
-from src.aspects.extractor import extract_aspects, load_spacy_model
-from src.classical.lexicon import load_lexicon, score_aspect_lexicon
-from src.classical.svm_classifier import SVMAspectClassifier
-from src.data.builder import build_dataset, sentiment_label
-from src.data.loader import load_reviews
-from src.evaluation.metrics import evaluate_predictions
-from src.reputation.aggregator import compute_reputation_scores
-from src.transformers_models.beto import BETOAspectClassifier
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s")
 logger = logging.getLogger(__name__)
 
 
+def _split_reviews(df, test_size: float, seed: int):
+    from sklearn.model_selection import train_test_split
+
+    stratify = df["rating"] if df["rating"].value_counts().min() >= 2 else None
+    return train_test_split(df, test_size=test_size, random_state=seed, stratify=stratify)
+
+
 def evaluate_lexicon(texts: list[str], aspects: list[str], y_true: list[str]) -> dict:
+    from src.classical.lexicon import load_lexicon, score_aspect_lexicon
+    from src.data.builder import sentiment_label
+    from src.evaluation.metrics import evaluate_predictions
+
     lexicon = load_lexicon()
     preds = [sentiment_label(score_aspect_lexicon(t, a, lexicon)) for t, a in zip(texts, aspects)]
     return evaluate_predictions(y_true, preds)
 
 
 def evaluate_svm(model_path: str, texts: list[str], aspects: list[str], y_true: list[str]) -> dict:
+    from src.classical.svm_classifier import SVMAspectClassifier
+    from src.evaluation.metrics import evaluate_predictions
+
     clf = SVMAspectClassifier.load(model_path)
     preds = clf.predict(texts, aspects).tolist()
     return evaluate_predictions(y_true, preds)
 
 
 def evaluate_beto(model_path: str, texts: list[str], aspects: list[str], y_true: list[str]) -> dict:
+    from src.evaluation.metrics import evaluate_predictions
+    from src.transformers_models.beto import BETOAspectClassifier
+
     clf = BETOAspectClassifier.load(model_path)
     preds = clf.predict(texts, aspects)
     return evaluate_predictions(y_true, preds)
@@ -63,15 +69,24 @@ def main() -> None:
     parser.add_argument("--beto", type=str, default="models/beto")
     parser.add_argument("--out", type=str, default="reports/eval_results.json")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--test-size", type=float, default=0.2)
     args = parser.parse_args()
 
-    df = load_reviews(args.data)
-    texts, aspects, labels = build_dataset(df)
-    _, t_test, _, a_test, _, y_test = train_test_split(
-        texts, aspects, labels, test_size=0.2, random_state=args.seed, stratify=labels,
-    )
+    from src.aspects.extractor import extract_aspects, load_spacy_model
+    from src.classical.lexicon import load_lexicon, score_aspect_lexicon
+    from src.data.builder import build_best_available_dataset, sentiment_label
+    from src.data.loader import load_reviews
+    from src.reputation.aggregator import compute_reputation_scores
 
-    results: dict[str, dict] = {}
+    df = load_reviews(args.data)
+    _, test_df = _split_reviews(df, args.test_size, args.seed)
+    t_test, a_test, y_test, label_source = build_best_available_dataset(test_df)
+    if label_source != "manual":
+        logger.warning(
+            "Evaluación con pseudo-etiquetas de lexicón; usar solo como prueba funcional, no como resultado final."
+        )
+
+    results: dict[str, dict] = {"metadata": {"label_source": label_source, "test_size": args.test_size}}
     results["lexicon"] = evaluate_lexicon(t_test, a_test, y_test)
 
     if Path(args.svm).exists():

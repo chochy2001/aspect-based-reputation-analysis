@@ -53,7 +53,11 @@ class SVMAspectClassifier:
         self._fitted: bool = False
 
     def _format_inputs(self, texts: Iterable[str], aspects: Iterable[str]) -> list[str]:
-        return [f"{t} {self.ASPECT_TOKEN} {a}" for t, a in zip(texts, aspects)]
+        text_list = list(texts)
+        aspect_list = list(aspects)
+        if len(text_list) != len(aspect_list):
+            raise ValueError("texts y aspects deben tener la misma longitud")
+        return [f"{t} {self.ASPECT_TOKEN} {a}" for t, a in zip(text_list, aspect_list)]
 
     def fit(
         self,
@@ -73,8 +77,13 @@ class SVMAspectClassifier:
         """
         if not (len(texts) == len(aspects) == len(labels)):
             raise ValueError("texts, aspects y labels deben tener la misma longitud")
+        unique_labels = set(labels)
+        if len(unique_labels) < 2:
+            raise ValueError(
+                f"Se requieren al menos 2 clases distintas; recibidas: {unique_labels}"
+            )
         inputs = self._format_inputs(texts, aspects)
-        logger.info("Entrenando SVM con %d ejemplos", len(inputs))
+        logger.info("Entrenando SVM con %d ejemplos (%d clases)", len(inputs), len(unique_labels))
         self.pipeline.fit(inputs, labels)
         self._fitted = True
         return self

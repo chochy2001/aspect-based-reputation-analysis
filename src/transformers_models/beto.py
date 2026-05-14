@@ -49,8 +49,16 @@ class AspectDataset:
             tokenizer: Tokenizer de Hugging Face.
             max_length: Longitud máxima de tokens.
         """
-        if labels is not None and not (len(texts) == len(aspects) == len(labels)):
+        if len(texts) != len(aspects):
+            raise ValueError("texts y aspects deben tener la misma longitud")
+        if labels is not None and len(labels) != len(texts):
             raise ValueError("texts, aspects y labels deben tener la misma longitud")
+        if labels is not None:
+            invalid = sorted({lbl for lbl in labels if lbl not in LABEL2ID})
+            if invalid:
+                raise ValueError(
+                    f"Etiquetas no reconocidas: {invalid}. Esperadas: {sorted(LABEL2ID)}"
+                )
         self.texts = texts
         self.aspects = aspects
         self.labels = labels
@@ -188,6 +196,9 @@ class BETOAspectClassifier:
         import torch
         from torch.utils.data import DataLoader
 
+        if not texts:
+            return []
+
         dataset = AspectDataset(texts, aspects, None, self.tokenizer, self.max_length)
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
@@ -214,6 +225,9 @@ class BETOAspectClassifier:
         import torch
         from torch.utils.data import DataLoader
 
+        if not texts:
+            return np.empty((0, self.num_labels))
+
         dataset = AspectDataset(texts, aspects, None, self.tokenizer, self.max_length)
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
@@ -228,15 +242,19 @@ class BETOAspectClassifier:
         return np.vstack(probas)
 
     def save(self, path: str | Path) -> None:
-        """Guarda modelo y tokenizer.
+        """Guarda modelo, tokenizer y configuración del clasificador.
 
         Args:
             path: Directorio de salida.
         """
+        import json as _json
+
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
         self.model.save_pretrained(path)
         self.tokenizer.save_pretrained(path)
+        with (path / "classifier_config.json").open("w", encoding="utf-8") as fh:
+            _json.dump({"max_length": self.max_length}, fh)
         logger.info("BETO guardado en %s", path)
 
     @classmethod
@@ -251,6 +269,7 @@ class BETOAspectClassifier:
             Instancia con modelo cargado.
         """
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
+        import json as _json
         import torch
 
         path = Path(path)
@@ -259,7 +278,14 @@ class BETOAspectClassifier:
         instance.tokenizer = AutoTokenizer.from_pretrained(path)
         instance.model = AutoModelForSequenceClassification.from_pretrained(path)
         instance.num_labels = instance.model.config.num_labels
-        instance.max_length = DEFAULT_MAX_LENGTH
+
+        config_file = path / "classifier_config.json"
+        if config_file.exists():
+            with config_file.open("r", encoding="utf-8") as fh:
+                cfg = _json.load(fh)
+            instance.max_length = int(cfg.get("max_length", DEFAULT_MAX_LENGTH))
+        else:
+            instance.max_length = DEFAULT_MAX_LENGTH
 
         if device is None:
             if torch.cuda.is_available():

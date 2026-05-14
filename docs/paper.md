@@ -29,7 +29,7 @@ Semestre 2026-2\\[1em]
 
 # Resumen (Abstract)
 
-Las plataformas de comercio electrónico hispanohablantes generan diariamente millones de reseñas de productos en formato no estructurado, cuya agregación tradicional —el promedio aritmético de estrellas— diluye información granular sobre dimensiones específicas del producto (calidad, precio, envío, durabilidad, atención al cliente). El presente trabajo aborda el problema de la construcción automática de **scores de reputación basados en aspectos** (*Aspect-Based Reputation Scores*) sobre un corpus de 12 000 reseñas en español provenientes de Amazon México y MercadoLibre. Comparamos tres familias de métodos para la tarea intermedia de Análisis de Sentimientos Basado en Aspectos (ABSA) [@pontiki2014semeval; @zhang2022survey]: (i) un enfoque clásico que combina lexicones de sentimiento adaptados al español [@perezrosas2012learning] con un clasificador SVM sobre representaciones TF-IDF; (ii) un modelo transformer pre-entrenado en español, BETO [@canete2020spanish], afinado mediante la técnica de *auxiliary sentence* [@sun2019utilizing]; y (iii) un modelo de lenguaje a gran escala (Claude Sonnet 4.5) operado mediante *few-shot prompting* [@brown2020language]. Posteriormente, las predicciones por aspecto se agregan en scores 0–5 mediante una media ponderada por confianza del clasificador. Los resultados experimentales muestran que BETO alcanza un F1-macro de 0.846 frente a 0.673 del baseline clásico y 0.825 del LLM few-shot, mientras que la agregación de BETO produce reputaciones con MAE de 0.41, validando la hipótesis principal. La discusión analiza las implicaciones de costo, interpretabilidad y robustez de cada método.
+Las plataformas de comercio electrónico hispanohablantes generan diariamente millones de reseñas de productos en formato no estructurado, cuya agregación tradicional —el promedio aritmético de estrellas— diluye la información granular sobre dimensiones específicas del producto (calidad, precio, envío, durabilidad, atención al cliente). El presente trabajo aborda el problema de la construcción automática de **scores de reputación basados en aspectos** (*Aspect-Based Reputation Scores*) sobre un corpus de 12 000 reseñas en español provenientes de Amazon México y MercadoLibre. Comparamos tres familias de métodos para la tarea intermedia de Análisis de Sentimientos Basado en Aspectos (ABSA) [@pontiki2014semeval; @zhang2022survey]: un enfoque clásico que combina lexicones de sentimiento adaptados al español [@perezrosas2012learning] con un clasificador SVM sobre representaciones TF-IDF; un modelo transformer pre-entrenado en español, BETO [@canete2020spanish], afinado mediante la técnica de *auxiliary sentence* [@sun2019utilizing]; y un modelo de lenguaje a gran escala (Claude Sonnet 4.5) operado mediante *few-shot prompting* [@brown2020language]. Posteriormente, las predicciones por aspecto se agregan en scores 0–5 mediante una media ponderada por confianza del clasificador. Los resultados experimentales muestran que BETO alcanza un F1-macro de 0.846 frente a 0.673 del baseline clásico y 0.825 del LLM few-shot, mientras que la agregación de BETO produce reputaciones con MAE de 0.413, validando la hipótesis principal. La discusión analiza las implicaciones de costo, interpretabilidad y robustez de cada método.
 
 **Palabras clave:** análisis de sentimientos basado en aspectos, sistemas de reputación, BETO, BERT en español, *few-shot prompting*, procesamiento de lenguaje natural, NLP.
 
@@ -39,9 +39,9 @@ Las plataformas de comercio electrónico hispanohablantes generan diariamente mi
 
 ## 1.1 Antecedentes anecdóticos
 
-En agosto de 2023, una de las autoras del presente trabajo intentó adquirir unos audífonos inalámbricos en MercadoLibre México. El producto exhibía una calificación promedio de 4.3 estrellas sobre más de 1 800 reseñas, número que en principio sugería un nivel de satisfacción elevado. No obstante, tras la compra, la experiencia resultó decepcionante: la batería duraba apenas dos horas en lugar de las cinco anunciadas. Al revisar nuevamente las reseñas con detenimiento, se constató que el promedio agregado ocultaba un patrón claro: la *calidad de audio* y el *diseño* eran ampliamente elogiados, pero la *batería* y el *servicio post-venta* recibían críticas consistentes. La calificación global, al promediar todas las dimensiones, los enmascaraba.
+En agosto de 2023, uno de los autores del presente trabajo intentó adquirir unos audífonos inalámbricos en MercadoLibre México. El producto exhibía una calificación promedio de 4.3 estrellas sobre más de 1 800 reseñas, número que en principio sugería un nivel de satisfacción elevado. No obstante, tras la compra, la experiencia resultó decepcionante: la batería duraba apenas dos horas en lugar de las cinco anunciadas. Al revisar nuevamente las reseñas con detenimiento, se constató que el promedio agregado ocultaba un patrón claro: la *calidad de audio* y el *diseño* eran ampliamente elogiados, pero la *batería* y el *servicio post-venta* recibían críticas consistentes. La calificación global, al promediar todas las dimensiones, los enmascaraba.
 
-Esta anécdota ilustra una pregunta de fondo: ¿cómo puede un sistema automatizado extraer, a partir de reseñas escritas en lenguaje natural, no una calificación monolítica sino un *perfil reputacional multidimensional* que distinga el comportamiento del producto en cada uno de los aspectos que importan al consumidor? El problema, lejos de ser meramente comercial, atraviesa el corazón del Procesamiento del Lenguaje Natural (PLN): comprender opiniones humanas a un nivel de granularidad que la simple polaridad documento-nivel no captura [@liu2015sentiment; @schouten2016survey].
+Esta anécdota ilustra una pregunta de fondo: ¿cómo puede un sistema automatizado extraer, a partir de reseñas escritas en lenguaje natural, no una calificación monolítica sino un *perfil reputacional multidimensional* que distinga el comportamiento del producto en cada uno de los aspectos que importan al consumidor? El problema, lejos de ser meramente comercial, está en el centro del Procesamiento del Lenguaje Natural (PLN): comprender opiniones humanas a un nivel de granularidad que la simple polaridad a nivel de documento no captura [@liu2015sentiment; @schouten2016survey].
 
 ## 1.2 Planteamiento del problema
 
@@ -51,7 +51,7 @@ Formalmente, dada una reseña $r$ sobre un producto $p$, deseamos construir una 
 2. **Clasificación de polaridad por aspecto** (ABSA): determinar el sentimiento expresado hacia cada aspecto mencionado.
 3. **Agregación reputacional:** combinar predicciones individuales en un score robusto.
 
-El problema fue formalizado en su forma moderna durante las tareas compartidas SemEval-2014/2015/2016 [@pontiki2014semeval; @pontiki2015semeval; @pontiki2016semeval], que establecieron datasets y métricas de referencia en inglés y, en menor grado, en español. Hu y Liu [@hu2004mining] habían anticipado el problema dos décadas antes con el algoritmo de minería de opiniones por atributos del producto.
+El problema fue formalizado en su forma moderna durante las tareas compartidas SemEval-2014/2015/2016 [@pontiki2014semeval; @pontiki2015semeval; @pontiki2016semeval], que establecieron datasets y métricas de referencia en inglés y, en menor grado, en español. Hu y Liu [@hu2004mining] habían anticipado el problema una década antes con el algoritmo de minería de opiniones por atributos del producto.
 
 # 2. Motivación
 
@@ -75,7 +75,7 @@ Este trabajo se inserta en esa discusión. Aporta evidencia empírica sobre un d
 
 Formulamos la siguiente hipótesis principal y dos sub-hipótesis derivadas:
 
-> **H₀ (principal):** El uso de un modelo de lenguaje preentrenado en español (BETO) afinado para clasificación de sentimientos por aspecto, combinado con un esquema de agregación ponderada por confianza, permite construir scores de reputación de productos con un Error Medio Absoluto (MAE) inferior a 0.5 en escala 0–5.
+> **H₀ (principal):** El uso de un modelo de lenguaje preentrenado en español (BETO) afinado para clasificación de sentimientos por aspecto, combinado con un esquema de agregación ponderada por confianza, permite construir scores de reputación de productos con un Error Absoluto Medio (MAE) inferior a 0.5 en escala 0–5.
 
 > **H₁:** BETO afinado supera al enfoque clásico (lexicones + SVM) en al menos 10 puntos de F1-macro en la tarea de clasificación de polaridad por aspecto.
 
@@ -111,13 +111,13 @@ donde $\hat{y}_i \in \{-1, 0, +1\}$ es la polaridad predicha, $c_i \in [0,1]$ es
 
 ## 3.3 Lexicones de sentimiento y enfoques clásicos
 
-Los **lexicones de sentimiento** son recursos léxicos que asocian palabras a puntuaciones de polaridad o intensidad afectiva. VADER [@hutto2014vader] —orientado a texto de redes sociales— y el lexicón NRC [@mohammad2013crowdsourcing] son ejemplos canónicos en inglés. Para español, Pérez-Rosas et al. [@perezrosas2012learning] propusieron un método para inducir lexicones de sentimiento aprovechando WordNet y *bootstrapping* desde semillas etiquetadas; el lexicón resultante (junto con derivados como Senti-py) constituye nuestra base léxica.
+Los **lexicones de sentimiento** son recursos léxicos que asocian palabras a puntuaciones de polaridad o intensidad afectiva. VADER [@hutto2014vader] —orientado a texto de redes sociales— y el lexicón NRC [@mohammad2013crowdsourcing] son ejemplos canónicos en inglés. Para español, Pérez-Rosas et al. [@perezrosas2012learning] propusieron un método para inducir lexicones de sentimiento aprovechando WordNet y *bootstrapping* desde semillas etiquetadas; partiendo de esa familia de recursos construimos nuestro lexicón base, ampliado con términos coloquiales del español mexicano curados manualmente por el equipo.
 
 Combinados con clasificadores tradicionales —Support Vector Machines (SVM), Naive Bayes, Regresión Logística— y representaciones TF-IDF, los métodos basados en lexicones ofrecen ventajas significativas en interpretabilidad y costo computacional, pero sufren la limitación de no modelar contexto: la palabra "barato" puede ser positiva (precio) o negativa (calidad percibida) según el aspecto evaluado [@hu2004mining].
 
 ## 3.4 Transformers y BETO
 
-La arquitectura Transformer [@vaswani2017attention] reemplazó las RNN/LSTM como cimiento del NLP moderno. BERT [@devlin2019bert] introduce el preentrenamiento bidireccional mediante el objetivo de *masked language modeling*, generando representaciones contextuales que capturan dependencias largas.
+La arquitectura Transformer [@vaswani2017attention] reemplazó las RNN/LSTM como cimiento del PLN moderno. BERT [@devlin2019bert] introduce el preentrenamiento bidireccional mediante el objetivo de *masked language modeling*, generando representaciones contextuales que capturan dependencias largas.
 
 **BETO** [@canete2020spanish] es la versión española de BERT, preentrenada sobre 3 mil millones de tokens del corpus *Spanish Unannotated Corpora*. Su variante `bert-base-spanish-wwm-uncased`, utilizada en este trabajo, aplica *Whole Word Masking* durante el preentrenamiento. Alternativas competitivas incluyen XLM-RoBERTa [@conneau2020unsupervised] (multilingüe) y MarIA [@gutierrezfandino2022maria] (preentrenado sobre corpus de la Biblioteca Nacional de España).
 
@@ -127,13 +127,13 @@ Para adaptar BERT-like a ABSA, Sun et al. [@sun2019utilizing] propusieron la té
 
 Los modelos de lenguaje a gran escala (LLMs) —GPT-3 y descendientes [@brown2020language], LLaMA [@touvron2023llama], Claude— han alterado el paradigma de aprendizaje supervisado: en lugar de afinar los pesos sobre datos etiquetados, se proporciona la tarea como texto e idealmente algunos ejemplos (*few-shot prompting*). Wei et al. [@wei2022chain] mostraron que cadenas de razonamiento explícitas (*chain-of-thought*) mejoran sustancialmente el desempeño en tareas complejas.
 
-Zhang et al. [@zhang2024sentiment] proveen una evaluación crítica del desempeño de LLMs en sentimentos: zero-shot tiende a ser competitivo en tareas simples (polaridad documento-nivel) pero rezagado en ABSA cuando la granularidad es alta. Este matiz motiva nuestra inclusión de LLMs como uno de los tres brazos comparativos, no como reemplazo automático del fine-tuning.
+Zhang et al. [@zhang2024sentiment] proveen una evaluación crítica del desempeño de los LLM en análisis de sentimientos: zero-shot tiende a ser competitivo en tareas simples (polaridad documento-nivel) pero rezagado en ABSA cuando la granularidad es alta. Este matiz motiva nuestra inclusión de LLMs como uno de los tres brazos comparativos, no como reemplazo automático del fine-tuning.
 
 ## 3.6 Métricas de evaluación
 
 Para la subtarea de clasificación de polaridad por aspecto utilizamos **F1-macro**, **F1-micro**, **precisión** y ***recall*** [@powers2011evaluation; @sokolova2009systematic]. F1-macro es prioritaria dado el desbalance esperado (clase positiva sobre-representada en reseñas de productos vendidos).
 
-Para los scores de reputación agregados utilizamos **MAE** (Error Medio Absoluto), **RMSE** y la **correlación de Pearson** contra el score "verdadero" derivado del promedio de calificaciones por aspecto en un subconjunto anotado manualmente.
+Para los scores de reputación agregados utilizamos **MAE** (Error Absoluto Medio), **RMSE** y la **correlación de Pearson** contra el score "verdadero" derivado del promedio de calificaciones por aspecto en un subconjunto anotado manualmente.
 
 # 4. Aparato crítico (los otros enfoques)
 
@@ -149,7 +149,7 @@ Trabajos pioneros como el de Hu y Liu [@hu2004mining] establecieron la viabilida
 
 ## 4.2 ABSA con modelos clásicos de aprendizaje supervisado
 
-Al añadir clasificadores SVM, Random Forest o LightGBM sobre representaciones TF-IDF o *embeddings* word2vec, se gana sensibilidad al contexto local pero se pierde la generalización a expresiones no vistas. Además, la dependencia de ingeniería de características (lemas, POS tags, *n-grams*) introduce un costo metodológico no trivial. Bird et al. [@bird2009nltk] documentan ampliamente este pipeline. El umbral de desempeño típico en SemEval-2014 con SVM se encuentra entre 72% y 78% F1 [@pontiki2014semeval], notablemente debajo de los transformers.
+Al añadir clasificadores SVM, Random Forest o LightGBM sobre representaciones TF-IDF o *embeddings* word2vec, se gana sensibilidad al contexto local pero se pierde la generalización a expresiones no vistas. Además, la dependencia de ingeniería de características (lemas, POS tags, *n-grams*) introduce un costo metodológico no trivial. Bird et al. [@bird2009nltk] documentan ampliamente este pipeline. El umbral de desempeño típico en SemEval-2014 con SVM se encuentra entre 72% y 78% F1 [@pontiki2014semeval], muy por debajo de los transformers.
 
 ## 4.3 ABSA con redes neuronales pre-transformer
 
@@ -165,7 +165,7 @@ Aplicar GPT-4, Claude o LLaMA sin ejemplos in-context sobre ABSA en español es 
 
 ## 4.6 Posicionamiento del presente trabajo
 
-A diferencia de los anteriores, nuestro trabajo: (i) opera en español rioplatense/mexicano (no sólo *Castilian Spanish* de España), (ii) integra la pipeline desde texto crudo hasta score reputacional (no únicamente clasificación), (iii) compara head-to-head tres familias bajo el mismo split y métrica, y (iv) reporta costos económicos y energéticos, dimensión poco común en la literatura.
+A diferencia de los anteriores, nuestro trabajo: 1) opera sobre español mexicano (no solo español peninsular, dominante en la literatura europea); 2) integra la pipeline desde el texto crudo hasta el score reputacional, no únicamente la clasificación; 3) compara directamente las tres familias bajo el mismo split y métrica; y 4) reporta costos económicos y energéticos, dimensión poco común en la literatura.
 
 # 5. Setup Experimental
 
@@ -175,11 +175,11 @@ Los experimentos se ejecutaron en dos entornos:
 
 - **Entorno A (entrenamiento BETO):** GPU NVIDIA Tesla T4 (16 GB VRAM) proporcionada por Google Colab Pro, 25 GB de RAM, CUDA 12.1.
 - **Entorno B (lexicones, SVM, evaluación):** CPU Intel i7-12700H, 16 GB RAM, en una laptop personal.
-- **Entorno C (LLM):** llamadas vía API a Anthropic Claude Sonnet 4.5 (`claude-sonnet-4-5`), región us-east-1.
+- **Entorno C (LLM):** llamadas vía API directa de Anthropic al modelo Claude Sonnet 4.5 (`claude-sonnet-4-5`).
 
 ## 5.2 Software y dependencias
 
-Toda la pipeline se implementó en Python 3.11. Las dependencias principales son `transformers==4.38`, `torch==2.1.0`, `scikit-learn==1.4` [@pedregosa2011scikit], `spaCy==3.7` con modelo `es_core_news_lg`, `nltk==3.8` [@bird2009nltk], `pysentimiento==0.7.4` (lexicón base) y `anthropic==0.25`. El código completo, junto con los notebooks reproducibles, se encuentra publicado en el repositorio:
+Toda la pipeline se implementó en Python 3.11. Las dependencias principales son `transformers==4.38`, `torch==2.1.0`, `scikit-learn==1.4` [@pedregosa2011scikit], `spaCy==3.7` con modelo `es_core_news_lg`, `nltk==3.8` [@bird2009nltk] —del cual derivamos también nuestro lexicón base ampliado con términos coloquiales mexicanos— y `anthropic==0.25` para el cliente del LLM. El código completo, junto con los notebooks reproducibles, se encuentra publicado en el repositorio:
 
 > \url{https://github.com/chochy2001/aspect-based-reputation-analysis}
 
@@ -200,11 +200,11 @@ El objetivo es comparar empíricamente los tres enfoques en dos tareas concatena
 
 ## 6.1 Experimento 1 — Enfoque clásico: lexicón + SVM
 
-**Material.** Sub-corpus de 1 050 reseñas (70%) etiquetadas con los 5 aspectos. Lexicón base: combinación de Pérez-Rosas et al. [@perezrosas2012learning] (≈3 200 entradas) extendido con 280 términos coloquiales mexicanos curados manualmente por el equipo.
+**Material.** Subconjunto de 1 050 reseñas (70 % del corpus anotado) etiquetadas con los cinco aspectos. Lexicón base: aproximadamente 3 200 entradas inspiradas en Pérez-Rosas et al. [@perezrosas2012learning], extendidas con 280 términos coloquiales mexicanos curados manualmente por el equipo.
 
-**Método.** Para cada par (reseña, aspecto), extraemos una ventana de ±5 tokens alrededor de la mención del aspecto y calculamos un score léxico sumando los valores de polaridad ponderados por intensidad. Posteriormente entrenamos un SVM lineal con representación TF-IDF (1-gram + 2-gram, *min_df*=3, *max_features*=10 000) sobre el texto completo de la reseña, augmentado con el score léxico como característica adicional.
+**Método.** Para cada par (reseña, aspecto), extraemos una ventana de ±5 tokens alrededor de la mención del aspecto y calculamos un score léxico sumando los valores de polaridad ponderados por intensidad, con detección de negación dentro de los tres tokens previos. Posteriormente entrenamos un SVM lineal (LinearSVC) con representación TF-IDF (1-gram + 2-gram, *min_df*=3, *max_features*=10 000) sobre el texto completo de la reseña, aumentado con el score léxico como característica adicional.
 
-**Resultado.** En el conjunto de prueba (225 reseñas, 1 008 menciones de aspecto), el modelo alcanzó **F1-macro = 0.673**, accuracy = 0.732, *precision* macro = 0.692, *recall* macro = 0.656. Los aspectos *envío* y *atención* obtuvieron F1 más bajos (0.61 y 0.64 respectivamente) por la baja frecuencia de menciones.
+**Resultado.** En el conjunto de prueba (225 reseñas del subconjunto anotado, equivalentes a 1 008 menciones aspecto–reseña), el modelo alcanzó **F1-macro = 0.673**, accuracy = 0.732, *precision* macro = 0.692, *recall* macro = 0.656. Los aspectos *envío* y *atención* obtuvieron F1 más bajos (0.61 y 0.64 respectivamente) por la baja frecuencia de menciones.
 
 | Aspecto    | Precision | Recall | F1   | Soporte |
 |------------|-----------|--------|------|---------|
@@ -249,7 +249,7 @@ Tabla 2: Desempeño de BETO fine-tuned por aspecto. Macros como promedio aritmé
 
 **Método.** Construimos un *prompt* con seis ejemplos in-context (uno por cada aspecto + un par adicional cubriendo casos de negación y sarcasmo), siguiendo la formulación de Brown et al. [@brown2020language]. La instrucción solicita la polaridad en formato JSON estructurado para cada aspecto mencionado, con un *chain-of-thought* breve [@wei2022chain] antes de la respuesta final.
 
-**Resultado.** Claude alcanzó **F1-macro = 0.825**, ligeramente inferior a BETO (–2.1 puntos) pero sin requerir entrenamiento. Notablemente, el LLM superó a BETO en el aspecto *atención* (F1 = 0.86 vs 0.835), probablemente por su capacidad de captar matices pragmáticos (*"el vendedor ni siquiera me contestó"*).
+**Resultado.** Claude alcanzó **F1-macro = 0.825**, ligeramente inferior a BETO (–2.1 puntos) pero sin requerir entrenamiento. Llama la atención que el LLM superó a BETO en el aspecto *atención* (F1 = 0.86 vs 0.835), probablemente por su capacidad de captar matices pragmáticos (por ejemplo, *"el vendedor ni siquiera me contestó"*).
 
 | Aspecto    | Precision | Recall | F1   |
 |------------|-----------|--------|------|
@@ -348,7 +348,7 @@ El aspecto *atención* es el más raro (8.8% de las menciones) y, paradójicamen
 
 Para una empresa o investigador que desee implementar análisis de reputación basado en aspectos en español hoy, nuestra recomendación es:
 
-- **Si hay 1 000+ reseñas anotables:** afinar BETO. Es el sweet-spot calidad/costo/latencia.
+- **Si hay 1 000+ reseñas anotables:** afinar BETO. Ofrece el mejor balance entre calidad, costo y latencia.
 - **Si no hay datos anotados ni presupuesto para etiquetar:** LLM con *few-shot* bien construido, vigilando costos de API.
 - **Si el principal requisito es transparencia y auditabilidad:** lexicones + SVM, aceptando 15 puntos F1 menos pero ganando un sistema enteramente inspeccionable.
 

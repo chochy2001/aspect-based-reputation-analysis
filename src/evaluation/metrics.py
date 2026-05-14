@@ -39,16 +39,20 @@ def evaluate_predictions(
     """
     if len(y_true) != len(y_pred):
         raise ValueError("y_true y y_pred deben tener la misma longitud")
+    known = set(labels)
+    unexpected = sorted((set(y_true) | set(y_pred)) - known)
+    if unexpected:
+        raise ValueError(f"Etiquetas fuera del catálogo esperado: {unexpected}")
 
     cm = confusion_matrix(y_true, y_pred, labels=list(labels))
     metrics: dict[str, float | list] = {
         "accuracy": float(accuracy_score(y_true, y_pred)),
-        "precision_macro": float(precision_score(y_true, y_pred, average="macro", zero_division=0)),
-        "recall_macro": float(recall_score(y_true, y_pred, average="macro", zero_division=0)),
-        "f1_macro": float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
-        "precision_micro": float(precision_score(y_true, y_pred, average="micro", zero_division=0)),
-        "recall_micro": float(recall_score(y_true, y_pred, average="micro", zero_division=0)),
-        "f1_micro": float(f1_score(y_true, y_pred, average="micro", zero_division=0)),
+        "precision_macro": float(precision_score(y_true, y_pred, labels=list(labels), average="macro", zero_division=0)),
+        "recall_macro": float(recall_score(y_true, y_pred, labels=list(labels), average="macro", zero_division=0)),
+        "f1_macro": float(f1_score(y_true, y_pred, labels=list(labels), average="macro", zero_division=0)),
+        "precision_micro": float(precision_score(y_true, y_pred, labels=list(labels), average="micro", zero_division=0)),
+        "recall_micro": float(recall_score(y_true, y_pred, labels=list(labels), average="micro", zero_division=0)),
+        "f1_micro": float(f1_score(y_true, y_pred, labels=list(labels), average="micro", zero_division=0)),
         "confusion_matrix": cm.tolist(),
         "labels": list(labels),
     }
@@ -113,6 +117,11 @@ def classification_report_dict(
         Dict {label: {precision, recall, f1, support}}.
     """
     report: dict[str, dict[str, float]] = {}
+    known = set(labels)
+    unexpected = sorted((set(y_true) | set(y_pred)) - known)
+    if unexpected:
+        raise ValueError(f"Etiquetas fuera del catálogo esperado: {unexpected}")
+
     for label in labels:
         report[label] = {
             "precision": float(precision_score(y_true, y_pred, labels=[label], average="macro", zero_division=0)),

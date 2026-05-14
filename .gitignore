@@ -53,6 +53,7 @@ data/processed/
 # Logs y temporales
 *.log
 logs/
+reports/
 tmp/
 .tmp/
 

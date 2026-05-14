@@ -5,13 +5,14 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 from typing import Any, Literal
+
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
 
 VALID_LABELS: tuple[str, ...] = ("pos", "neg", "neu")
-DEFAULT_ANTHROPIC_MODEL: str = "claude-sonnet-4-5"
+DEFAULT_ANTHROPIC_MODEL: str = "claude-sonnet-4-5-20250929"
 DEFAULT_OPENAI_MODEL: str = "gpt-4o-mini"
 DEFAULT_MAX_TOKENS: int = 512
 DEFAULT_TEMPERATURE: float = 0.0
@@ -40,6 +41,11 @@ FEW_SHOT_EXAMPLES: list[dict[str, Any]] = [
         "aspects": ["precio", "calidad", "servicio"],
         "answer": {"precio": "neu", "calidad": "neu", "servicio": "neg"},
     },
+    {
+        "text": "El libro llegó bien empacado y la lectura es entretenida.",
+        "aspects": ["envío", "calidad", "precio"],
+        "answer": {"envío": "pos", "calidad": "pos", "precio": "neu"},
+    },
 ]
 
 
@@ -57,6 +63,37 @@ def _build_user_prompt(text: str, aspects: list[str]) -> str:
     return "\n".join(parts)
 
 
+def _extract_first_json_object(content: str) -> str | None:
+    """Extrae el primer objeto JSON balanceado de una cadena."""
+    start = content.find("{")
+    if start == -1:
+        return None
+
+    depth = 0
+    in_string = False
+    escape = False
+    for idx in range(start, len(content)):
+        ch = content[idx]
+        if escape:
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return content[start:idx + 1]
+    return None
+
+
 def _parse_response(content: str, aspects: list[str]) -> dict[str, str]:
     """Extrae un JSON {aspecto: sentimiento} de la respuesta del modelo.
 
@@ -67,12 +104,12 @@ def _parse_response(content: str, aspects: list[str]) -> dict[str, str]:
     Returns:
         Diccionario {aspecto: 'pos'|'neg'|'neu'}. Valores inválidos -> 'neu'.
     """
-    match = re.search(r"\{.*\}", content, re.DOTALL)
-    if not match:
+    json_text = _extract_first_json_object(content)
+    if json_text is None:
         logger.warning("No se encontró JSON en la respuesta del LLM")
         return {a: "neu" for a in aspects}
     try:
-        raw = json.loads(match.group(0))
+        raw = json.loads(json_text)
     except json.JSONDecodeError:
         logger.warning("JSON inválido en la respuesta del LLM")
         return {a: "neu" for a in aspects}
@@ -87,8 +124,14 @@ def _parse_response(content: str, aspects: list[str]) -> dict[str, str]:
     return result
 
 
+@retry(
+    reraise=True,
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=20),
+    retry=retry_if_exception_type(Exception),
+)
 def _call_anthropic(client, text: str, aspects: list[str], model: str) -> str:
-    """Llama a la API de Anthropic."""
+    """Llama a la API de Anthropic con reintentos y backoff exponencial."""
     user_prompt = _build_user_prompt(text, aspects)
     response = client.messages.create(
         model=model,
@@ -100,8 +143,14 @@ def _call_anthropic(client, text: str, aspects: list[str], model: str) -> str:
     return response.content[0].text
 
 
+@retry(
+    reraise=True,
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=20),
+    retry=retry_if_exception_type(Exception),
+)
 def _call_openai(client, text: str, aspects: list[str], model: str) -> str:
-    """Llama a la API de OpenAI."""
+    """Llama a la API de OpenAI con reintentos y backoff exponencial."""
     user_prompt = _build_user_prompt(text, aspects)
     response = client.chat.completions.create(
         model=model,

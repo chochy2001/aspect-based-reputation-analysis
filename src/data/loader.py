@@ -32,11 +32,34 @@ def load_reviews(path: str | Path, encoding: str = DEFAULT_ENCODING) -> pd.DataF
         raise FileNotFoundError(f"No se encontró el archivo de reseñas: {path}")
 
     logger.info("Cargando reseñas desde %s", path)
-    df = pd.read_csv(path, encoding=encoding)
+    try:
+        df = pd.read_csv(path, encoding=encoding)
+    except UnicodeDecodeError as exc:
+        raise UnicodeDecodeError(
+            exc.encoding, exc.object, exc.start, exc.end,
+            f"No se pudo decodificar {path} con encoding '{encoding}'. "
+            f"Prueba con 'latin-1' o 'utf-8-sig'.",
+        ) from exc
 
     missing = set(REQUIRED_COLUMNS) - set(df.columns)
     if missing:
         raise ValueError(f"Faltan columnas requeridas en el CSV: {sorted(missing)}")
+
+    df = df.copy()
+    df["text"] = df["text"].fillna("").astype(str).str.strip()
+    if df["text"].eq("").any():
+        raise ValueError("La columna 'text' contiene valores vacíos")
+
+    df["product_category"] = df["product_category"].fillna("").astype(str).str.strip()
+    if df["product_category"].eq("").any():
+        raise ValueError("La columna 'product_category' contiene valores vacíos")
+
+    df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
+    invalid_rating = df["rating"].isna() | ~df["rating"].between(1, 5)
+    if invalid_rating.any():
+        count = int(invalid_rating.sum())
+        raise ValueError(f"La columna 'rating' contiene {count} valores fuera del rango 1-5")
+    df["rating"] = df["rating"].astype(int)
 
     logger.info("Se cargaron %d reseñas", len(df))
     return df
@@ -57,6 +80,7 @@ def filter_by_category(
     """
     if category is None:
         return df
-    mask = df["product_category"].str.lower() == category.lower()
+    normalized = df["product_category"].astype(str).str.strip().str.lower()
+    mask = normalized == category.strip().lower()
     logger.info("Filtradas %d reseñas para categoría '%s'", mask.sum(), category)
     return df.loc[mask].reset_index(drop=True)

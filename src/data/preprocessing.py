@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 URL_PATTERN = re.compile(r"https?://\S+|www\.\S+")
 MENTION_PATTERN = re.compile(r"@\w+")
 MULTI_SPACE_PATTERN = re.compile(r"\s+")
-NON_ALPHA_PATTERN = re.compile(r"[^a-záéíóúüñ\s]")
+NON_ALPHA_PATTERN = re.compile(r"[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ\s]")
 
 SPANISH_STOPWORDS: frozenset[str] = frozenset({
     "el", "la", "los", "las", "un", "una", "unos", "unas",
@@ -32,10 +32,10 @@ def strip_accents(text: str) -> str:
     Returns:
         Cadena sin acentos.
     """
-    text = text.replace("ñ", "\x00")
+    text = text.replace("ñ", "\x00").replace("Ñ", "\x01")
     nfkd = unicodedata.normalize("NFKD", text)
     cleaned = "".join(ch for ch in nfkd if not unicodedata.combining(ch))
-    return cleaned.replace("\x00", "ñ")
+    return cleaned.replace("\x00", "ñ").replace("\x01", "Ñ")
 
 
 def clean_text(text: str, lowercase: bool = True, remove_accents: bool = False) -> str:
