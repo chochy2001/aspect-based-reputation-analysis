@@ -12,7 +12,7 @@ subject: "Análisis y Procesamiento Inteligente de Textos"
 instructor: "M. en C. Octavio Augusto Sánchez Velázquez"
 lang: es
 documentclass: article
-papersize: letter
+papersize: us-letter
 fontsize: 11pt
 geometry:
   - margin=2.5cm
@@ -21,13 +21,4 @@ link-citations: true
 toc: true
 toc-depth: 2
 numbersections: true
-header-includes:
-  - \usepackage{amsmath}
-  - \usepackage{booktabs}
-  - \usepackage{graphicx}
-  - \usepackage{hyperref}
-  - \usepackage{fancyhdr}
-  - \pagestyle{fancy}
-  - \fancyhead[L]{APIT, Trabajo Final}
-  - \fancyhead[R]{UNAM FI 2026-2}
 ---

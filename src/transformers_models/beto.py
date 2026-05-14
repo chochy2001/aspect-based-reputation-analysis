@@ -7,6 +7,7 @@ Implementa el formato de auxiliary sentence (Sun et al., 2019):
 from __future__ import annotations
 
 import logging
+import random
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -137,6 +138,7 @@ class BETOAspectClassifier:
         batch_size: int = DEFAULT_BATCH_SIZE,
         learning_rate: float = DEFAULT_LEARNING_RATE,
         weight_decay: float = DEFAULT_WEIGHT_DECAY,
+        seed: int | None = None,
     ) -> dict[str, list[float]]:
         """Entrena BETO sobre los datos proporcionados.
 
@@ -148,6 +150,7 @@ class BETOAspectClassifier:
             batch_size: Tamaño de batch.
             learning_rate: Tasa de aprendizaje.
             weight_decay: Decay para AdamW.
+            seed: Semilla opcional para inicialización y orden de batches.
 
         Returns:
             Diccionario con historial de pérdida por época.
@@ -156,8 +159,21 @@ class BETOAspectClassifier:
         from torch.optim import AdamW
         from torch.utils.data import DataLoader
 
+        generator = None
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
+            if hasattr(torch.backends, "cudnn"):
+                torch.backends.cudnn.deterministic = True
+                torch.backends.cudnn.benchmark = False
+            generator = torch.Generator()
+            generator.manual_seed(seed)
+
         dataset = AspectDataset(texts, aspects, labels, self.tokenizer, self.max_length)
-        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, generator=generator)
 
         optimizer = AdamW(
             self.model.parameters(),

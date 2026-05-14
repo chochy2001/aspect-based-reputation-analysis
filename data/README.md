@@ -16,21 +16,26 @@ data/
 ## Datasets recomendados y trazabilidad
 
 ### 1. Amazon Reviews (multilingual)
-- **Fuente:** https://huggingface.co/datasets/amazon_reviews_multi
-- **Idioma:** Filtrar por `language="es"`
+- **Fuente recomendada actual:** https://huggingface.co/datasets/mteb/amazon_reviews_multi
+- **Fuente original/paper:** https://arxiv.org/abs/2010.02573
+- **Idioma:** usar el subset `es`.
 - **Tamaño:** la configuración `es` reporta 200K reseñas de entrenamiento, 5K de validación y 5K de prueba.
-- **Campos originales relevantes:** `review_id`, `product_id`, `product_category`, `review_body`, `stars`, `language`.
+- **Campos originales relevantes:** dependen del espejo usado; en `mteb/amazon_reviews_multi` aparecen `id`, `text`, `label` y `label_text`.
 - **Formato esperado tras normalización:** CSV con columnas `review_id`, `product_category`, `text`, `rating`.
 
 ```python
 from datasets import load_dataset
-ds = load_dataset("amazon_reviews_multi", "es")
+ds = load_dataset("mteb/amazon_reviews_multi", "es")
 train = ds["train"].to_pandas()
-train = train.rename(columns={"review_body": "text", "stars": "rating"})
-train[["review_id", "product_id", "product_category", "text", "rating"]].to_csv(
+train = train.rename(columns={"id": "review_id", "label": "rating"})
+train["rating"] = train["rating"] + 1  # labels 0-4 -> rating 1-5
+train["product_category"] = "amazon_multi"
+train[["review_id", "product_category", "text", "rating"]].to_csv(
     "data/processed/reviews_train.csv", index=False
 )
 ```
+
+Nota: el identificador histórico `amazon_reviews_multi` puede fallar según la versión de `datasets`; por eso se recomienda el espejo `mteb/amazon_reviews_multi` y registrar el commit/fecha usada.
 
 ### 2. MercadoLibre Reviews
 - **Fuente:** https://www.kaggle.com/datasets/ (buscar "mercadolibre reviews")
@@ -58,7 +63,29 @@ Para evaluación experimental real, agregar anotaciones por aspecto:
 | aspect o aspecto                  | str  | Aspecto mencionado. Se normaliza a calidad, precio, envío, durabilidad o atención cuando aplica. |
 | label, sentiment, polarity o polaridad | str | Etiqueta `pos`, `neg` o `neu` (`positivo`, `negativo`, `neutro` también se aceptan). |
 
-Si no existen columnas de anotación, el código genera pseudo-etiquetas con el lexicón para probar el flujo. No usar esas métricas como verdad terreno en el reporte final.
+Si no existen columnas de anotación, el código solo permite pseudo-etiquetas con la bandera explícita `--allow-pseudo-smoke`. No usar esas métricas como verdad terreno en el reporte final.
+
+## Trazabilidad mínima para resultados reportables
+
+Antes de reportar F1, MAE o comparaciones entre modelos, guardar junto con el CSV:
+
+- fuente exacta, URL o identificador del dataset;
+- licencia o permiso de uso;
+- fecha de descarga y filtros aplicados;
+- script de normalización;
+- hashes de archivos crudos y procesados;
+- criterio de muestreo;
+- guía de anotación y resolución de desacuerdos;
+- partición train/test o train/valid/test usada;
+- archivo `reports/eval_results.json` generado por `scripts/eval_all.py`.
+
+Un ejemplo de archivo anotado puede tener una fila por par reseña-aspecto:
+
+```csv
+review_id,product_id,product_category,text,rating,aspect,label
+r001,p001,electronica,"La batería dura mucho pero el precio es alto.",4,durabilidad,pos
+r001,p001,electronica,"La batería dura mucho pero el precio es alto.",4,precio,neg
+```
 
 ## Privacidad y uso de LLM
 

@@ -15,15 +15,37 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(
 logger = logging.getLogger(__name__)
 
 
-def _split_reviews(df, test_size: float, seed: int):
-    from sklearn.model_selection import GroupShuffleSplit, train_test_split
+def _dependency_error(exc: ModuleNotFoundError) -> SystemExit:
+    return SystemExit(
+        f"Falta la dependencia '{exc.name}'. Instala el entorno con: "
+        "python -m pip install -r requirements.txt && python -m pip install -e ."
+    )
 
+
+def _split_reviews(df, test_size: float, seed: int):
+    try:
+        from sklearn.model_selection import GroupShuffleSplit, train_test_split
+    except ModuleNotFoundError as exc:
+        raise _dependency_error(exc) from exc
+
+    group_column = None
     if "product_id" in df.columns and df["product_id"].nunique() > 1:
+        group_column = "product_id"
+    elif "review_id" in df.columns and df["review_id"].nunique() > 1:
+        group_column = "review_id"
+
+    if group_column is not None:
         splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=seed)
-        train_idx, test_idx = next(splitter.split(df, groups=df["product_id"]))
-        return df.iloc[train_idx].reset_index(drop=True), df.iloc[test_idx].reset_index(drop=True)
+        train_idx, test_idx = next(splitter.split(df, groups=df[group_column]))
+        train_df = df.iloc[train_idx].reset_index(drop=True)
+        test_df = df.iloc[test_idx].reset_index(drop=True)
+        overlap = set(train_df[group_column].astype(str)) & set(test_df[group_column].astype(str))
+        if overlap:
+            raise RuntimeError(f"Fuga de grupos entre train/test en {group_column}: {sorted(overlap)[:5]}")
+        return train_df, test_df
     stratify = df["rating"] if df["rating"].value_counts().min() >= 2 else None
-    return train_test_split(df, test_size=test_size, random_state=seed, stratify=stratify)
+    train_df, test_df = train_test_split(df, test_size=test_size, random_state=seed, stratify=stratify)
+    return train_df.reset_index(drop=True), test_df.reset_index(drop=True)
 
 
 def main() -> None:
@@ -32,19 +54,45 @@ def main() -> None:
     parser.add_argument("--out", type=str, default="models/svm.pkl")
     parser.add_argument("--test-size", type=float, default=0.2)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--train-all",
+        action="store_true",
+        help="Entrena con todas las filas del CSV y omite evaluación interna; útil cuando ya existe un split externo.",
+    )
+    parser.add_argument(
+        "--allow-pseudo-smoke",
+        action="store_true",
+        help="Permite entrenar/evaluar con pseudo-etiquetas de lexicón solo como prueba funcional.",
+    )
     args = parser.parse_args()
 
-    from src.classical.svm_classifier import SVMAspectClassifier
-    from src.data.builder import build_best_available_dataset
-    from src.data.loader import load_reviews
-    from src.evaluation.metrics import evaluate_predictions
+    try:
+        from src.classical.svm_classifier import SVMAspectClassifier
+        from src.data.builder import build_best_available_dataset
+        from src.data.loader import load_reviews
+        from src.evaluation.metrics import evaluate_predictions
+    except ModuleNotFoundError as exc:
+        raise _dependency_error(exc) from exc
 
     df = load_reviews(args.data)
-    train_df, test_df = _split_reviews(df, args.test_size, args.seed)
+    if args.train_all:
+        train_df = df.reset_index(drop=True)
+        test_df = None
+    else:
+        train_df, test_df = _split_reviews(df, args.test_size, args.seed)
 
     t_train, a_train, y_train, train_source = build_best_available_dataset(train_df)
-    t_test, a_test, y_test, test_source = build_best_available_dataset(test_df)
-    if train_source != "manual" or test_source != "manual":
+    sources = [train_source]
+    if test_df is not None:
+        t_test, a_test, y_test, test_source = build_best_available_dataset(test_df)
+        sources.append(test_source)
+
+    if any(source != "manual" for source in sources):
+        if not args.allow_pseudo_smoke:
+            raise SystemExit(
+                "El CSV no contiene anotaciones manuales. Para una prueba de humo usa "
+                "--allow-pseudo-smoke; no reportes esas métricas como resultado final."
+            )
         logger.warning(
             "Entrenamiento/evaluación con pseudo-etiquetas de lexicón; no reportar estas métricas como verdad terreno."
         )
@@ -54,9 +102,12 @@ def main() -> None:
     clf = SVMAspectClassifier()
     clf.fit(t_train, a_train, y_train)
 
-    preds = clf.predict(t_test, a_test).tolist()
-    metrics = evaluate_predictions(y_test, preds)
-    logger.info("Métricas test: %s", {k: v for k, v in metrics.items() if not isinstance(v, list)})
+    if test_df is not None:
+        preds = clf.predict(t_test, a_test).tolist()
+        metrics = evaluate_predictions(y_test, preds)
+        logger.info("Métricas test: %s", {k: v for k, v in metrics.items() if not isinstance(v, list)})
+    else:
+        logger.info("Entrenamiento completado sobre todas las filas; evaluación interna omitida por --train-all.")
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     clf.save(args.out)

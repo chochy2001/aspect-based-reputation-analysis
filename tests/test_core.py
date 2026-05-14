@@ -34,6 +34,10 @@ class LexiconTests(unittest.TestCase):
         score = score_aspect_lexicon("La batería, es excelente.", "batería")
         self.assertGreater(score, 0)
 
+    def test_aspect_matching_ignores_missing_accents(self) -> None:
+        score = score_aspect_lexicon("La bateria es excelente.", "batería")
+        self.assertGreater(score, 0)
+
     def test_multiword_aspect_matching(self) -> None:
         score = score_aspect_lexicon("El servicio al cliente fue muy malo.", "servicio al cliente")
         self.assertLess(score, 0)

@@ -107,13 +107,13 @@ def evaluate_reputation(
     scores_true: dict[str, float],
     scores_pred: dict[str, float],
 ) -> dict[str, float]:
-    """Compara scores de reputación por aspecto con valores de referencia.
+    """Compara puntuaciones de reputación por aspecto con valores de referencia.
 
     Calcula MAE, RMSE y correlación de Pearson sobre los aspectos en común.
 
     Args:
-        scores_true: Dict {aspecto: score real 0-5}.
-        scores_pred: Dict {aspecto: score predicho 0-5}.
+        scores_true: Dict {aspecto: puntuación real 0-5}.
+        scores_pred: Dict {aspecto: puntuación predicha 0-5}.
 
     Returns:
         Diccionario con MAE, RMSE, Pearson y nº de aspectos comparados.
@@ -176,3 +176,35 @@ def classification_report_dict(
             "support": float(stats[label]["support"]),
         }
     return report
+
+
+def evaluate_predictions_by_aspect(
+    y_true: Sequence[str],
+    y_pred: Sequence[str],
+    aspects: Sequence[str],
+    labels: Sequence[str] = DEFAULT_LABELS,
+) -> dict[str, dict[str, float | list]]:
+    """Calcula métricas de clasificación separadas por aspecto.
+
+    Args:
+        y_true: Etiquetas verdaderas.
+        y_pred: Etiquetas predichas.
+        aspects: Aspectos paralelos a las etiquetas.
+        labels: Etiquetas posibles en orden.
+
+    Returns:
+        Dict {aspecto: métricas de `evaluate_predictions`}.
+    """
+    if not (len(y_true) == len(y_pred) == len(aspects)):
+        raise ValueError("y_true, y_pred y aspects deben tener la misma longitud")
+
+    grouped: dict[str, dict[str, list[str]]] = {}
+    for true, pred, aspect in zip(y_true, y_pred, aspects):
+        bucket = grouped.setdefault(str(aspect), {"y_true": [], "y_pred": []})
+        bucket["y_true"].append(true)
+        bucket["y_pred"].append(pred)
+
+    return {
+        aspect: evaluate_predictions(bucket["y_true"], bucket["y_pred"], labels=labels)
+        for aspect, bucket in sorted(grouped.items())
+    }

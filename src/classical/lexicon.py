@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -142,9 +143,27 @@ def save_lexicon(lexicon: dict[str, float], path: str | Path) -> None:
     logger.info("Lexicón guardado en %s", path)
 
 
+def _strip_accents(text: str) -> str:
+    normalized = unicodedata.normalize("NFD", text)
+    chars = [
+        char
+        for char in normalized
+        if not unicodedata.combining(char) or char == "\u0303"
+    ]
+    return unicodedata.normalize("NFC", "".join(chars))
+
+
+def _normalize_token(text: str) -> str:
+    return _strip_accents(text.strip().lower())
+
+
+def _normalize_lexicon(lexicon: dict[str, float]) -> dict[str, float]:
+    return {_normalize_token(word): float(score) for word, score in lexicon.items()}
+
+
 def _tokenize_words(text: str) -> list[str]:
-    """Tokeniza palabras ignorando puntuación y normalizando a minúsculas."""
-    return [match.group(0).lower() for match in TOKEN_PATTERN.finditer(text)]
+    """Tokeniza palabras ignorando puntuación y normalizando minúsculas/tildes."""
+    return [_normalize_token(match.group(0)) for match in TOKEN_PATTERN.finditer(text)]
 
 
 def _find_aspect_spans(tokens: list[str], aspect: str) -> list[tuple[int, int]]:
@@ -183,6 +202,9 @@ def score_aspect_lexicon(
     """
     if lexicon is None:
         lexicon = DEFAULT_LEXICON
+    lexicon = _normalize_lexicon(lexicon)
+    negation_terms = {_normalize_token(term) for term in NEGATION_TERMS}
+    intensifiers = {_normalize_token(term): value for term, value in INTENSIFIERS.items()}
 
     tokens = _tokenize_words(text)
     spans = _find_aspect_spans(tokens, aspect)
@@ -203,11 +225,11 @@ def score_aspect_lexicon(
                 val = lexicon[tok]
                 # Negación: revisar los NEGATION_WINDOW tokens previos
                 neg_window = tokens[max(0, i - NEGATION_WINDOW):i]
-                if any(n in NEGATION_TERMS for n in neg_window):
+                if any(n in negation_terms for n in neg_window):
                     val = -val
                 # Intensificadores: token previo
-                if i > 0 and tokens[i - 1] in INTENSIFIERS:
-                    val *= INTENSIFIERS[tokens[i - 1]]
+                if i > 0 and tokens[i - 1] in intensifiers:
+                    val *= intensifiers[tokens[i - 1]]
                 local_score += val
                 local_count += 1
         if local_count > 0:

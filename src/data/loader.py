@@ -55,10 +55,13 @@ def load_reviews(path: str | Path, encoding: str = DEFAULT_ENCODING) -> pd.DataF
         raise ValueError("La columna 'product_category' contiene valores vacíos")
 
     df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
-    invalid_rating = df["rating"].isna() | ~df["rating"].between(1, 5)
+    non_integer_rating = df["rating"].notna() & (df["rating"] != df["rating"].round())
+    invalid_rating = df["rating"].isna() | ~df["rating"].between(1, 5) | non_integer_rating
     if invalid_rating.any():
         count = int(invalid_rating.sum())
-        raise ValueError(f"La columna 'rating' contiene {count} valores fuera del rango 1-5")
+        raise ValueError(
+            f"La columna 'rating' contiene {count} valores inválidos; deben ser enteros en el rango 1-5"
+        )
     df["rating"] = df["rating"].astype(int)
 
     logger.info("Se cargaron %d reseñas", len(df))

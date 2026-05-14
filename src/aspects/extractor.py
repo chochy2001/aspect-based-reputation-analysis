@@ -55,7 +55,7 @@ def _contains_keyword(text: str, keyword: str) -> bool:
 def extract_category_mentions(text: str) -> list[tuple[str, str]]:
     """Devuelve menciones detectadas como pares (categoría, keyword).
 
-    La detección por palabras clave mantiene el pipeline funcionando incluso
+    La detección por palabras clave mantiene el flujo funcionando incluso
     cuando no hay modelo estadístico de spaCy instalado.
     """
     if not text or not isinstance(text, str):

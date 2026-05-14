@@ -12,6 +12,7 @@ dist/
 
 # Entornos virtuales
 .venv/
+.venv*/
 venv/
 env/
 ENV/

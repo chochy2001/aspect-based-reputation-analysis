@@ -92,16 +92,29 @@ def build_annotated_dataset(
     texts: list[str] = []
     aspects: list[str] = []
     labels: list[str] = []
-    for _, row in df.iterrows():
+    unmapped_aspects: list[tuple[object, str]] = []
+    for idx, row in df.iterrows():
         raw_aspect = str(row[aspect_column]).strip()
+        if not raw_aspect or raw_aspect.lower() in {"nan", "none"}:
+            unmapped_aspects.append((idx, raw_aspect))
+            continue
         aspect = map_to_category(raw_aspect) if categories_only else None
         if aspect is None:
             if categories_only:
+                unmapped_aspects.append((idx, raw_aspect))
                 continue
             aspect = raw_aspect.lower()
         texts.append(str(row["text"]))
         aspects.append(aspect)
         labels.append(normalize_label(str(row[label_column])))
+    if unmapped_aspects:
+        examples = ", ".join(f"fila {idx}: {aspect!r}" for idx, aspect in unmapped_aspects[:5])
+        raise ValueError(
+            "Hay anotaciones con aspectos fuera del catálogo esperado "
+            f"({len(unmapped_aspects)} casos; ejemplos: {examples})."
+        )
+    if not texts:
+        raise ValueError("No se construyeron ejemplos anotados; revisa columnas de aspecto y etiqueta")
     logger.info("Dataset anotado construido con %d ejemplos", len(texts))
     return texts, aspects, labels
 

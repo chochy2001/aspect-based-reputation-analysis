@@ -1,1 +1,1 @@
-"""Agregación de sentimientos por aspecto en scores de reputación."""
+"""Agregación de sentimientos por aspecto en puntuaciones de reputación."""

@@ -1,4 +1,4 @@
-"""Agrega sentimientos por aspecto a scores de reputación 0-5."""
+"""Agrega sentimientos por aspecto a puntuaciones de reputación 0-5."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def _normalize_sentiment(value: str | float) -> float:
     """Convierte etiqueta o float a [-1, 1].
 
     Args:
-        value: Etiqueta ('pos'/'neg'/'neu') o score numérico.
+        value: Etiqueta ('pos'/'neg'/'neu') o valor numérico.
 
     Returns:
         Float ∈ [-1, 1].
@@ -76,7 +76,7 @@ def compute_reputation_scores(
     predictions: Iterable[Mapping[str, Any]],
     prior: float = 0.0,
 ) -> dict[str, float]:
-    """Convierte predicciones por aspecto en scores agregados 0-5.
+    """Convierte predicciones por aspecto en puntuaciones agregadas 0-5.
 
     Cada elemento de `predictions` es un dict {aspecto: sentimiento} para una
     reseña individual. También acepta valores con confianza, por ejemplo
@@ -89,7 +89,7 @@ def compute_reputation_scores(
         prior: Sentimiento previo ∈ [-1, 1] al que se suaviza cuando hay pocas observaciones.
 
     Returns:
-        Diccionario {aspecto: score ∈ [0, 5]}.
+        Diccionario {aspecto: puntuación ∈ [0, 5]}.
     """
     prior = _normalize_sentiment(prior)
     prediction_list = list(predictions)
@@ -115,7 +115,7 @@ def compute_reputation_scores(
         adjusted = evidence_weight * avg + (1.0 - evidence_weight) * prior
         scores[aspect] = round(_sentiment_to_score(adjusted), 3)
 
-    logger.info("Calculados scores de reputación para %d aspectos", len(scores))
+    logger.info("Calculadas puntuaciones de reputación para %d aspectos", len(scores))
     return scores
 
 
@@ -153,14 +153,14 @@ def compute_global_reputation(
     aspect_scores: Mapping[str, float],
     weights: Mapping[str, float] | None = None,
 ) -> float:
-    """Calcula un score global a partir de scores por aspecto.
+    """Calcula una puntuación global a partir de puntuaciones por aspecto.
 
     Args:
-        aspect_scores: Dict {aspecto: score 0-5}.
+        aspect_scores: Dict {aspecto: puntuación 0-5}.
         weights: Pesos opcionales por aspecto; si es None se ponderan por igual.
 
     Returns:
-        Score global ∈ [0, 5].
+        Puntuación global ∈ [0, 5].
     """
     if not aspect_scores:
         return 0.0
@@ -179,10 +179,10 @@ def compute_global_reputation(
 
 
 def aspect_score_summary(scores: Mapping[str, float]) -> dict[str, str]:
-    """Genera etiquetas cualitativas a partir de scores 0-5.
+    """Genera etiquetas cualitativas a partir de puntuaciones 0-5.
 
     Args:
-        scores: Dict {aspecto: score}.
+        scores: Dict {aspecto: puntuación}.
 
     Returns:
         Dict {aspecto: etiqueta cualitativa}.

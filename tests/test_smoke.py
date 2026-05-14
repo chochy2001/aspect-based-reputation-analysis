@@ -17,7 +17,7 @@ from src.classical.lexicon import (
 )
 from src.data.builder import sentiment_label
 from src.data.preprocessing import clean_text, tokenize
-from src.evaluation.metrics import evaluate_predictions, evaluate_reputation
+from src.evaluation.metrics import evaluate_predictions, evaluate_predictions_by_aspect, evaluate_reputation
 from src.reputation.aggregator import (
     aspect_score_summary,
     compute_global_reputation,
@@ -104,6 +104,17 @@ def test_evaluate_predictions_basic_metrics():
     metrics = evaluate_predictions(["pos", "neg", "neu"], ["pos", "neg", "neu"])
     assert metrics["accuracy"] == 1.0
     assert metrics["f1_macro"] == 1.0
+
+
+def test_evaluate_predictions_by_aspect_groups_metrics():
+    metrics = evaluate_predictions_by_aspect(
+        ["pos", "neg", "neg"],
+        ["pos", "pos", "neg"],
+        ["precio", "precio", "envío"],
+    )
+    assert set(metrics) == {"envío", "precio"}
+    assert metrics["envío"]["accuracy"] == 1.0
+    assert metrics["precio"]["accuracy"] == 0.5
 
 
 def test_evaluate_predictions_mismatch_lengths_raises():

@@ -27,6 +27,12 @@ Este repositorio implementa y compara tres enfoques para Análisis Basado en Asp
 
 Cada modelo produce predicciones de sentimiento por aspecto, que se agregan por dimensión canónica: calidad, precio, envío, durabilidad y atención.
 
+## Estado de reproducibilidad
+
+El repositorio versiona código, notebooks, pruebas y un CSV ficticio para pruebas de humo. No versiona un corpus real completo, modelos entrenados ni resultados finales. Las métricas obtenidas con `data/sample/reviews_sample.csv` sirven para comprobar que el flujo funciona; no deben presentarse como resultados experimentales.
+
+Antes de reportar resultados finales, revisar [`docs/reproducibility_checklist.md`](docs/reproducibility_checklist.md).
+
 ## Estructura del repositorio
 
 ```
@@ -55,12 +61,11 @@ python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-python -m pip install -e . # registra el paquete src/ como editable
+python -m pip install -e . # recomendado para usar el paquete desde notebooks
 python -m spacy download es_core_news_lg
 ```
 
-> El paso `pip install -e .` es necesario para que los scripts en `scripts/` puedan
-> importar `from src.data.builder import ...` sin manipular `PYTHONPATH`.
+> Los scripts insertan la raíz del repositorio en `sys.path`, por lo que pueden ejecutarse desde una copia local. El modo editable sigue siendo recomendable para notebooks, autocompletado y validación en entornos externos.
 
 ## Validación rápida
 
@@ -68,8 +73,8 @@ El repositorio incluye datos ficticios en `data/sample/reviews_sample.csv` para 
 
 ```bash
 python -m pytest -q
-python scripts/train_svm.py --data data/sample/reviews_sample.csv --out /tmp/apit-svm.pkl
-python scripts/eval_all.py --data data/sample/reviews_sample.csv --svm /tmp/apit-svm.pkl --beto /tmp/no-beto --out /tmp/apit-eval.json
+python scripts/train_svm.py --data data/sample/reviews_sample.csv --out /tmp/apit-svm.pkl --allow-pseudo-smoke
+python scripts/eval_all.py --data data/sample/reviews_sample.csv --svm /tmp/apit-svm.pkl --beto /tmp/no-beto --out /tmp/apit-eval.json --allow-pseudo-smoke
 ```
 
 ## Reproducir experimentos completos
@@ -89,15 +94,17 @@ Con datos reales:
 
 ```bash
 # Experimento 1, Clásico
-python scripts/train_svm.py --data data/processed/reviews_train.csv --out models/svm.pkl
+python scripts/train_svm.py --data data/processed/reviews_train.csv --out models/svm.pkl --train-all
 
 # Experimento 2, BETO
-python scripts/train_beto.py --data data/processed/reviews_train.csv --out models/beto/
+python scripts/train_beto.py --data data/processed/reviews_train.csv --out models/beto/ --train-all
 
 # Evaluación comparativa
 export ANTHROPIC_API_KEY=...
-python scripts/eval_all.py --data data/processed/reviews_test.csv --out reports/eval_results.json
+python scripts/eval_all.py --data data/processed/reviews_test.csv --out reports/eval_results.json --no-split --eval-llm
 ```
+
+Si no se desea llamar a un proveedor externo, omitir `--eval-llm`; el evaluador saltará esa parte sin consumir API.
 
 ## Documento académico
 
@@ -117,7 +124,7 @@ pandoc paper.md \
   -o paper.pdf
 ```
 
-Resultado esperado: `docs/paper.pdf` (~395 KB, ~34 páginas, con tabla de contenido y bibliografía numerada).
+Resultado esperado: `docs/paper.pdf` con tabla de contenido y bibliografía numerada.
 
 ## Licencia
 
