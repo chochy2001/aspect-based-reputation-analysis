@@ -37,6 +37,8 @@ El repositorio contiene tres niveles de artefactos:
 
 Para reproducir los números reportados en el paper se requiere disponer del corpus anotado con las columnas indicadas en la sección "Reproducir experimentos completos". Para auditar el flujo sin acceso al corpus, usar el sample ficticio con `--allow-pseudo-smoke`. La lista de pasos de auditoría se documenta en [`docs/reproducibility_checklist.md`](docs/reproducibility_checklist.md).
 
+El estado actual del proyecto, lo que ya está validado y los pendientes para futuras iteraciones están documentados en [`docs/project_status.md`](docs/project_status.md).
+
 ## Estructura del repositorio
 
 ```
@@ -44,7 +46,9 @@ Para reproducir los números reportados en el paper se requiere disponer del cor
 ├── docs/ # Paper académico (Markdown + BibTeX)
 │ ├── paper.md
 │ ├── metadata.yaml
-│ └── references.bib
+│ ├── references.bib
+│ ├── reproducibility_checklist.md
+│ └── project_status.md
 ├── src/ # Código fuente
 │ ├── data/ # Carga y preprocesamiento
 │ ├── aspects/ # Extracción de aspectos
