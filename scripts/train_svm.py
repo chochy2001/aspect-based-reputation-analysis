@@ -4,15 +4,24 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s")
 logger = logging.getLogger(__name__)
 
 
 def _split_reviews(df, test_size: float, seed: int):
-    from sklearn.model_selection import train_test_split
+    from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
+    if "product_id" in df.columns and df["product_id"].nunique() > 1:
+        splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=seed)
+        train_idx, test_idx = next(splitter.split(df, groups=df["product_id"]))
+        return df.iloc[train_idx].reset_index(drop=True), df.iloc[test_idx].reset_index(drop=True)
     stratify = df["rating"] if df["rating"].value_counts().min() >= 2 else None
     return train_test_split(df, test_size=test_size, random_state=seed, stratify=stratify)
 

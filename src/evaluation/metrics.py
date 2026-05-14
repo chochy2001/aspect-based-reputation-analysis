@@ -3,22 +3,50 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Sequence
-
-import numpy as np
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    f1_score,
-    mean_absolute_error,
-    mean_squared_error,
-    precision_score,
-    recall_score,
-)
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_LABELS: tuple[str, ...] = ("neg", "neu", "pos")
+
+
+def _validate_labels(y_true: Sequence[str], y_pred: Sequence[str], labels: Sequence[str]) -> None:
+    if len(y_true) != len(y_pred):
+        raise ValueError("y_true y y_pred deben tener la misma longitud")
+    known = set(labels)
+    unexpected = sorted((set(y_true) | set(y_pred)) - known)
+    if unexpected:
+        raise ValueError(f"Etiquetas fuera del catálogo esperado: {unexpected}")
+
+
+def _confusion_matrix(y_true: Sequence[str], y_pred: Sequence[str], labels: Sequence[str]) -> list[list[int]]:
+    index = {label: i for i, label in enumerate(labels)}
+    matrix = [[0 for _ in labels] for _ in labels]
+    for true, pred in zip(y_true, y_pred):
+        matrix[index[true]][index[pred]] += 1
+    return matrix
+
+
+def _per_label_stats(matrix: list[list[int]], labels: Sequence[str]) -> dict[str, dict[str, float]]:
+    stats: dict[str, dict[str, float]] = {}
+    for i, label in enumerate(labels):
+        tp = matrix[i][i]
+        fp = sum(row[i] for row in matrix) - tp
+        fn = sum(matrix[i]) - tp
+        precision = tp / (tp + fp) if tp + fp else 0.0
+        recall = tp / (tp + fn) if tp + fn else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+        stats[label] = {
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "support": float(sum(matrix[i])),
+            "tp": float(tp),
+            "fp": float(fp),
+            "fn": float(fn),
+        }
+    return stats
 
 
 def evaluate_predictions(
@@ -37,23 +65,38 @@ def evaluate_predictions(
         Diccionario con métricas. La matriz de confusión se devuelve como lista
         de listas para facilitar serialización.
     """
-    if len(y_true) != len(y_pred):
-        raise ValueError("y_true y y_pred deben tener la misma longitud")
-    known = set(labels)
-    unexpected = sorted((set(y_true) | set(y_pred)) - known)
-    if unexpected:
-        raise ValueError(f"Etiquetas fuera del catálogo esperado: {unexpected}")
+    _validate_labels(y_true, y_pred, labels)
 
-    cm = confusion_matrix(y_true, y_pred, labels=list(labels))
+    cm = _confusion_matrix(y_true, y_pred, labels)
+    stats = _per_label_stats(cm, labels)
+    total = len(y_true)
+    correct = sum(1 for true, pred in zip(y_true, y_pred) if true == pred)
+    accuracy = correct / total if total else 0.0
+
+    precision_macro = sum(stats[label]["precision"] for label in labels) / len(labels)
+    recall_macro = sum(stats[label]["recall"] for label in labels) / len(labels)
+    f1_macro = sum(stats[label]["f1"] for label in labels) / len(labels)
+
+    tp_total = sum(stats[label]["tp"] for label in labels)
+    fp_total = sum(stats[label]["fp"] for label in labels)
+    fn_total = sum(stats[label]["fn"] for label in labels)
+    precision_micro = tp_total / (tp_total + fp_total) if tp_total + fp_total else 0.0
+    recall_micro = tp_total / (tp_total + fn_total) if tp_total + fn_total else 0.0
+    f1_micro = (
+        2 * precision_micro * recall_micro / (precision_micro + recall_micro)
+        if precision_micro + recall_micro
+        else 0.0
+    )
+
     metrics: dict[str, float | list] = {
-        "accuracy": float(accuracy_score(y_true, y_pred)),
-        "precision_macro": float(precision_score(y_true, y_pred, labels=list(labels), average="macro", zero_division=0)),
-        "recall_macro": float(recall_score(y_true, y_pred, labels=list(labels), average="macro", zero_division=0)),
-        "f1_macro": float(f1_score(y_true, y_pred, labels=list(labels), average="macro", zero_division=0)),
-        "precision_micro": float(precision_score(y_true, y_pred, labels=list(labels), average="micro", zero_division=0)),
-        "recall_micro": float(recall_score(y_true, y_pred, labels=list(labels), average="micro", zero_division=0)),
-        "f1_micro": float(f1_score(y_true, y_pred, labels=list(labels), average="micro", zero_division=0)),
-        "confusion_matrix": cm.tolist(),
+        "accuracy": float(accuracy),
+        "precision_macro": float(precision_macro),
+        "recall_macro": float(recall_macro),
+        "f1_macro": float(f1_macro),
+        "precision_micro": float(precision_micro),
+        "recall_micro": float(recall_micro),
+        "f1_micro": float(f1_micro),
+        "confusion_matrix": cm,
         "labels": list(labels),
     }
     logger.info("Evaluación clasificación: acc=%.3f f1_macro=%.3f", metrics["accuracy"], metrics["f1_macro"])
@@ -80,14 +123,19 @@ def evaluate_reputation(
         logger.warning("No hay aspectos en común para evaluar reputación")
         return {"mae": float("nan"), "rmse": float("nan"), "pearson": float("nan"), "n_aspects": 0}
 
-    y_true = np.array([scores_true[a] for a in common], dtype=float)
-    y_pred = np.array([scores_pred[a] for a in common], dtype=float)
+    y_true = [float(scores_true[a]) for a in common]
+    y_pred = [float(scores_pred[a]) for a in common]
 
-    mae = float(mean_absolute_error(y_true, y_pred))
-    rmse = float(np.sqrt(mean_squared_error(y_true, y_pred)))
+    mae = sum(abs(a - b) for a, b in zip(y_true, y_pred)) / len(common)
+    rmse = math.sqrt(sum((a - b) ** 2 for a, b in zip(y_true, y_pred)) / len(common))
 
-    if len(common) >= 2 and y_true.std() > 0 and y_pred.std() > 0:
-        pearson = float(np.corrcoef(y_true, y_pred)[0, 1])
+    mean_true = sum(y_true) / len(y_true)
+    mean_pred = sum(y_pred) / len(y_pred)
+    var_true = sum((value - mean_true) ** 2 for value in y_true)
+    var_pred = sum((value - mean_pred) ** 2 for value in y_pred)
+    if len(common) >= 2 and var_true > 0 and var_pred > 0:
+        covariance = sum((a - mean_true) * (b - mean_pred) for a, b in zip(y_true, y_pred))
+        pearson = covariance / math.sqrt(var_true * var_pred)
     else:
         pearson = float("nan")
 
@@ -116,17 +164,15 @@ def classification_report_dict(
     Returns:
         Dict {label: {precision, recall, f1, support}}.
     """
+    _validate_labels(y_true, y_pred, labels)
+    matrix = _confusion_matrix(y_true, y_pred, labels)
+    stats = _per_label_stats(matrix, labels)
     report: dict[str, dict[str, float]] = {}
-    known = set(labels)
-    unexpected = sorted((set(y_true) | set(y_pred)) - known)
-    if unexpected:
-        raise ValueError(f"Etiquetas fuera del catálogo esperado: {unexpected}")
-
     for label in labels:
         report[label] = {
-            "precision": float(precision_score(y_true, y_pred, labels=[label], average="macro", zero_division=0)),
-            "recall": float(recall_score(y_true, y_pred, labels=[label], average="macro", zero_division=0)),
-            "f1": float(f1_score(y_true, y_pred, labels=[label], average="macro", zero_division=0)),
-            "support": float(sum(1 for y in y_true if y == label)),
+            "precision": float(stats[label]["precision"]),
+            "recall": float(stats[label]["recall"]),
+            "f1": float(stats[label]["f1"]),
+            "support": float(stats[label]["support"]),
         }
     return report

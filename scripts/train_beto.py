@@ -14,8 +14,12 @@ DEFAULT_LEARNING_RATE = 2e-5
 
 
 def _split_reviews(df, test_size: float, seed: int):
-    from sklearn.model_selection import train_test_split
+    from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
+    if "product_id" in df.columns and df["product_id"].nunique() > 1:
+        splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=seed)
+        train_idx, test_idx = next(splitter.split(df, groups=df["product_id"]))
+        return df.iloc[train_idx].reset_index(drop=True), df.iloc[test_idx].reset_index(drop=True)
     stratify = df["rating"] if df["rating"].value_counts().min() >= 2 else None
     return train_test_split(df, test_size=test_size, random_state=seed, stratify=stratify)
 

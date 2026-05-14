@@ -1,5 +1,5 @@
 ---
-title: "Análisis de Reputación Basado en Aspectos sobre Reseñas de Productos en Español: un Estudio Comparativo entre Lexicones, BETO y LLMs"
+title: "Análisis de Reputación Basado en Aspectos sobre Reseñas de Productos en Español: un Estudio Comparativo entre Lexicones, BETO y Modelos de Lenguaje a Gran Escala"
 author:
   - name: "Gómez Vázquez Juan Pablo"
     affiliation: "UNAM, Facultad de Ingeniería"
@@ -17,7 +17,6 @@ fontsize: 11pt
 geometry:
   - margin=2.5cm
 bibliography: references.bib
-csl: https://www.zotero.org/styles/ieee
 link-citations: true
 toc: true
 toc-depth: 2
@@ -29,6 +28,6 @@ header-includes:
   - \usepackage{hyperref}
   - \usepackage{fancyhdr}
   - \pagestyle{fancy}
-  - \fancyhead[L]{APIT — Trabajo Final}
+  - \fancyhead[L]{APIT, Trabajo Final}
   - \fancyhead[R]{UNAM FI 2026-2}
 ---
