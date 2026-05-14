@@ -1,0 +1,26 @@
+review_id,product_category,text,rating
+r001,electronica,"La batería del móvil es excelente, dura todo el día. La pantalla se ve muy bien aunque el precio me pareció algo caro.",4
+r002,electronica,"Pésima calidad, el auricular dejó de funcionar a la semana. El sonido era malo desde el principio y el envío llegó tarde.",1
+r003,electronica,"Muy buen portátil, rápido y silencioso. La pantalla tiene una resolución fantástica y el teclado es cómodo.",5
+r004,electronica,"El cargador no carga bien, el cable es muy frágil. Decepcionante para el precio que tiene.",2
+r005,electronica,"Auriculares aceptables, el sonido es regular pero la batería dura bastante. Por el precio están bien.",3
+r006,libros,"Libro maravilloso, la historia es increíble y los personajes están muy bien construidos. Lo recomiendo totalmente.",5
+r007,libros,"La encuadernación es horrible, las hojas se desprenden. El contenido es bueno pero la calidad del libro es pésima.",2
+r008,libros,"Buena novela, aunque el final me pareció decepcionante. La edición está bonita y el envío fue rápido.",3
+r009,libros,"Texto académico muy útil, explicaciones claras y ejemplos prácticos. El precio es algo elevado pero vale la pena.",4
+r010,libros,"No me gustó nada, la trama es aburrida y los diálogos parecen forzados. Una pérdida de tiempo.",1
+r011,ropa,"La camisa tiene una calidad excelente, el material es suave y el corte es elegante. Súper recomendable.",5
+r012,ropa,"Los pantalones me llegaron rotos y la talla no coincide con la guía. El servicio al cliente fue lento y poco útil.",1
+r013,ropa,"Vestido bonito pero la tela es muy delgada. Por el precio esperaba mejor calidad. El envío sí fue rápido.",2
+r014,ropa,"Zapatillas cómodas y bien fabricadas, el material parece resistente. Buen precio para lo que ofrecen.",4
+r015,ropa,"Chaqueta de calidad aceptable, el color difiere un poco de las fotos. En general estoy satisfecho con la compra.",3
+r016,hogar,"Cafetera fantástica, fácil de usar y limpia. El café sale perfecto y el diseño es muy elegante.",5
+r017,hogar,"Aspiradora ruidosa y poco potente, no aspira bien las alfombras. Me decepcionó totalmente, mala compra.",1
+r018,hogar,"Sartén buena, el antiadherente funciona perfecto y el mango es cómodo. Precio razonable.",4
+r019,hogar,"La lámpara llegó rota y el embalaje era pésimo. El vendedor no respondió a mi reclamación.",1
+r020,hogar,"Juego de sábanas suaves y agradables, la calidad del tejido es muy buena. Excelente relación calidad-precio.",5
+r021,electronica,"Tablet con pantalla nítida pero la batería se descarga rápido. El precio es muy bueno y el envío fue rápido.",3
+r022,libros,"Manga con impresión excelente, colores vibrantes y papel resistente. Llegó perfectamente embalado.",5
+r023,ropa,"Camiseta de algodón cómoda pero el estampado se desgastó tras pocos lavados. Calidad regular.",2
+r024,hogar,"Microondas funcional, calienta bien aunque el panel es algo complicado de usar. Precio aceptable.",3
+r025,electronica,"Smartwatch increíble, batería duradera, pantalla brillante y muy cómodo. Excelente compra.",5

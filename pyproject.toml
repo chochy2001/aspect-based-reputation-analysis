@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aspect-based-reputation-analysis"
+version = "0.1.0"
+description = "Análisis de Reputación Basado en Aspectos sobre Reseñas de Productos en Español"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Gómez Vázquez Juan Pablo" },
+    { name = "Martínez Miranda Juan Carlos" },
+    { name = "Salgado Miranda Jorge" },
+]
+keywords = ["nlp", "absa", "sentiment-analysis", "spanish", "reputation", "beto"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Natural Language :: Spanish",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[tool.setuptools]
+packages = [
+    "src",
+    "src.data",
+    "src.aspects",
+    "src.classical",
+    "src.transformers_models",
+    "src.llm",
+    "src.reputation",
+    "src.evaluation",
+]

@@ -1,0 +1,188 @@
+"""Few-shot prompting con Anthropic Claude (preferido) u OpenAI como fallback."""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import re
+from typing import Any, Literal
+
+logger = logging.getLogger(__name__)
+
+VALID_LABELS: tuple[str, ...] = ("pos", "neg", "neu")
+DEFAULT_ANTHROPIC_MODEL: str = "claude-sonnet-4-5"
+DEFAULT_OPENAI_MODEL: str = "gpt-4o-mini"
+DEFAULT_MAX_TOKENS: int = 512
+DEFAULT_TEMPERATURE: float = 0.0
+
+Provider = Literal["anthropic", "openai"]
+
+SYSTEM_PROMPT: str = (
+    "Eres un experto en análisis de sentimiento sobre reseñas de productos en español. "
+    "Tu tarea es determinar el sentimiento (pos, neg, neu) que la reseña expresa "
+    "hacia cada aspecto solicitado. Responde ÚNICAMENTE con un JSON válido."
+)
+
+FEW_SHOT_EXAMPLES: list[dict[str, Any]] = [
+    {
+        "text": "La batería del móvil dura todo el día pero la pantalla se ve algo opaca.",
+        "aspects": ["batería", "pantalla"],
+        "answer": {"batería": "pos", "pantalla": "neg"},
+    },
+    {
+        "text": "El envío llegó rápido y el producto está perfecto, muy contento con la compra.",
+        "aspects": ["envío", "producto"],
+        "answer": {"envío": "pos", "producto": "pos"},
+    },
+    {
+        "text": "El precio es aceptable, la calidad es regular y el servicio al cliente fue muy malo.",
+        "aspects": ["precio", "calidad", "servicio"],
+        "answer": {"precio": "neu", "calidad": "neu", "servicio": "neg"},
+    },
+]
+
+
+def _build_user_prompt(text: str, aspects: list[str]) -> str:
+    """Construye el prompt de usuario con ejemplos few-shot."""
+    parts: list[str] = ["Ejemplos:\n"]
+    for ex in FEW_SHOT_EXAMPLES:
+        parts.append(f"Reseña: \"{ex['text']}\"")
+        parts.append(f"Aspectos: {ex['aspects']}")
+        parts.append(f"Respuesta: {json.dumps(ex['answer'], ensure_ascii=False)}\n")
+    parts.append("Ahora analiza la siguiente reseña:")
+    parts.append(f"Reseña: \"{text}\"")
+    parts.append(f"Aspectos: {aspects}")
+    parts.append("Respuesta:")
+    return "\n".join(parts)
+
+
+def _parse_response(content: str, aspects: list[str]) -> dict[str, str]:
+    """Extrae un JSON {aspecto: sentimiento} de la respuesta del modelo.
+
+    Args:
+        content: Texto devuelto por el LLM.
+        aspects: Aspectos esperados.
+
+    Returns:
+        Diccionario {aspecto: 'pos'|'neg'|'neu'}. Valores inválidos -> 'neu'.
+    """
+    match = re.search(r"\{.*\}", content, re.DOTALL)
+    if not match:
+        logger.warning("No se encontró JSON en la respuesta del LLM")
+        return {a: "neu" for a in aspects}
+    try:
+        raw = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        logger.warning("JSON inválido en la respuesta del LLM")
+        return {a: "neu" for a in aspects}
+
+    result: dict[str, str] = {}
+    for aspect in aspects:
+        value = raw.get(aspect, "neu")
+        if isinstance(value, str) and value.lower() in VALID_LABELS:
+            result[aspect] = value.lower()
+        else:
+            result[aspect] = "neu"
+    return result
+
+
+def _call_anthropic(client, text: str, aspects: list[str], model: str) -> str:
+    """Llama a la API de Anthropic."""
+    user_prompt = _build_user_prompt(text, aspects)
+    response = client.messages.create(
+        model=model,
+        max_tokens=DEFAULT_MAX_TOKENS,
+        temperature=DEFAULT_TEMPERATURE,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    return response.content[0].text
+
+
+def _call_openai(client, text: str, aspects: list[str], model: str) -> str:
+    """Llama a la API de OpenAI."""
+    user_prompt = _build_user_prompt(text, aspects)
+    response = client.chat.completions.create(
+        model=model,
+        max_tokens=DEFAULT_MAX_TOKENS,
+        temperature=DEFAULT_TEMPERATURE,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+    )
+    return response.choices[0].message.content
+
+
+def _detect_provider(client) -> Provider:
+    """Detecta el proveedor a partir del tipo del cliente."""
+    cls = type(client).__name__.lower()
+    if "anthropic" in cls:
+        return "anthropic"
+    if "openai" in cls:
+        return "openai"
+    if hasattr(client, "messages"):
+        return "anthropic"
+    if hasattr(client, "chat"):
+        return "openai"
+    raise ValueError("No se pudo detectar el proveedor del cliente LLM")
+
+
+def analyze_with_llm(
+    text: str,
+    aspects: list[str],
+    client,
+    model: str | None = None,
+) -> dict[str, str]:
+    """Analiza el sentimiento por aspecto usando un LLM con few-shot prompting.
+
+    Args:
+        text: Texto de la reseña en español.
+        aspects: Aspectos a evaluar.
+        client: Cliente Anthropic (preferido) u OpenAI ya autenticado.
+        model: Modelo a usar; si es None se elige uno por defecto según el proveedor.
+
+    Returns:
+        Diccionario {aspecto: 'pos'|'neg'|'neu'}.
+    """
+    if not aspects:
+        return {}
+
+    provider = _detect_provider(client)
+    logger.info("Llamando LLM (%s) para %d aspectos", provider, len(aspects))
+
+    if provider == "anthropic":
+        chosen = model or DEFAULT_ANTHROPIC_MODEL
+        content = _call_anthropic(client, text, aspects, chosen)
+    else:
+        chosen = model or DEFAULT_OPENAI_MODEL
+        content = _call_openai(client, text, aspects, chosen)
+
+    return _parse_response(content, aspects)
+
+
+def build_default_client():
+    """Construye el cliente LLM por defecto.
+
+    Prioridad: Anthropic si ANTHROPIC_API_KEY está definida; OpenAI en caso contrario.
+
+    Returns:
+        Cliente listo para `analyze_with_llm`.
+
+    Raises:
+        RuntimeError: Si no hay credenciales disponibles.
+    """
+    if os.getenv("ANTHROPIC_API_KEY"):
+        from anthropic import Anthropic
+
+        logger.info("Usando proveedor Anthropic")
+        return Anthropic()
+    if os.getenv("OPENAI_API_KEY"):
+        from openai import OpenAI
+
+        logger.info("Usando proveedor OpenAI")
+        return OpenAI()
+    raise RuntimeError(
+        "No se encontró ANTHROPIC_API_KEY ni OPENAI_API_KEY en el entorno."
+    )

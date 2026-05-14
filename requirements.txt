@@ -1,0 +1,48 @@
+# --- Núcleo NLP en español ---
+spacy>=3.7.0,<4.0.0
+nltk>=3.8.1
+sentence-transformers>=2.5.0
+
+# --- Deep Learning (BETO fine-tuning) ---
+torch>=2.1.0
+transformers>=4.38.0
+datasets>=2.17.0
+accelerate>=0.27.0
+evaluate>=0.4.1
+
+# --- Aprendizaje clásico ---
+scikit-learn>=1.4.0
+joblib>=1.3.0
+
+# --- Lexicones de sentimiento (español) ---
+# Senti-py se instala manualmente; VADER vía nltk.vader_lexicon
+# pysentimiento (opcional, alternativa)
+pysentimiento>=0.7.4
+
+# --- LLMs ---
+anthropic>=0.25.0
+openai>=1.14.0
+tenacity>=8.2.0  # reintentos con backoff
+
+# --- Datos y análisis ---
+pandas>=2.1.0
+numpy>=1.26.0
+scipy>=1.12.0
+pyarrow>=15.0.0  # para parquet
+
+# --- Visualización ---
+matplotlib>=3.8.0
+seaborn>=0.13.0
+plotly>=5.18.0
+
+# --- Notebooks y utilidades ---
+jupyter>=1.0.0
+notebook>=7.0.0
+ipykernel>=6.29.0
+tqdm>=4.66.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# --- Testing ---
+pytest>=8.0.0
+pytest-cov>=4.1.0
