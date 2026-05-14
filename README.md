@@ -101,12 +101,23 @@ python scripts/eval_all.py --data data/processed/reviews_test.csv --out reports/
 
 ## Documento académico
 
-El reporte completo se encuentra en [`docs/paper.md`](docs/paper.md). Se puede compilar directamente desde Markdown:
+El reporte completo se encuentra en [`docs/paper.md`](docs/paper.md). Se puede compilar a PDF con pandoc y el motor Typst (más ligero que LaTeX y sin dependencias del sistema):
 
 ```bash
+# Requisitos: pandoc 3.0+ y typst 0.13+
+brew install pandoc typst   # macOS
+# o equivalentes en Linux/Windows
+
 cd docs/
-pandoc paper.md -o paper.pdf --metadata-file=metadata.yaml --bibliography=references.bib --citeproc
+pandoc paper.md \
+  --pdf-engine=typst \
+  --bibliography=references.bib \
+  --citeproc \
+  --toc --number-sections \
+  -o paper.pdf
 ```
+
+Resultado esperado: `docs/paper.pdf` (~395 KB, ~34 páginas, con tabla de contenido y bibliografía numerada).
 
 ## Licencia
 
